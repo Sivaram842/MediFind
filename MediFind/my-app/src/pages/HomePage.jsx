@@ -21,6 +21,7 @@ const HomePage = () => {
     const navigate = useNavigate();
     const [isLoggingOut, setIsLoggingOut] = useState(false);
     const [showLogoutPopup, setShowLogoutPopup] = useState(false);
+    const [showProfile, setShowProfile] = useState(true);
     const [hoverTimeout, setHoverTimeout] = useState(null);
     const [isMenuOpen, setIsMenuOpen] = useState(false);
 
@@ -86,16 +87,48 @@ const HomePage = () => {
                                             className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-50"
                                             onClick={(e) => e.stopPropagation()} // Prevent click from reaching parent
                                         >
-                                            <button
-                                                onClick={() => {
-                                                    localStorage.removeItem('authToken');
-                                                    navigate('/');
-                                                    window.location.reload();
-                                                }}
-                                                className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-600"
-                                            >
-                                                Logout
-                                            </button>
+
+
+                                            {/* Get user role from localStorage */}
+                                            {localStorage.getItem('userRole') === 'pharmacy' ? (
+                                                <>
+                                                    <button
+                                                        onClick={() => {
+                                                            navigate('/pharmacy/profile');
+                                                            setShowLogoutPopup(false);
+                                                        }}
+                                                        className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-600"
+                                                    >
+                                                        Pharmacy Profile
+                                                    </button>
+                                                    <button
+                                                        onClick={() => {
+                                                            localStorage.removeItem('authToken');
+                                                            localStorage.removeItem('userRole');
+                                                            navigate('/');
+                                                            setShowLogoutPopup(false);
+
+                                                        }}
+                                                        className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-600"
+                                                    >
+                                                        Logout
+                                                    </button>
+                                                </>
+                                            ) : (
+                                                <button
+                                                    onClick={() => {
+                                                        localStorage.removeItem('authToken');
+                                                        localStorage.removeItem('userRole');
+                                                        navigate('/');
+                                                        setShowLogoutPopup(false);
+
+                                                    }}
+                                                    className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-600"
+                                                >
+                                                    Logout
+                                                </button>
+                                            )}
+
                                         </div>
                                     )}
                                 </div>
@@ -139,17 +172,31 @@ const HomePage = () => {
                                 </button>
 
                                 {localStorage.getItem('authToken') ? (
-                                    <button
-                                        onClick={() => {
-                                            localStorage.removeItem('authToken');
-                                            navigate('/');
-                                            setIsMenuOpen(false);
-                                            window.location.reload();
-                                        }}
-                                        className="block w-full text-left px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-blue-600 hover:bg-blue-50"
-                                    >
-                                        Logout
-                                    </button>
+                                    <>
+                                        {localStorage.getItem('userRole') === 'pharmacy' && (
+                                            <button
+                                                onClick={() => {
+                                                    navigate('/pharmacy/profile');
+                                                    setIsMenuOpen(false);
+                                                }}
+                                                className="block w-full text-left px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-blue-600 hover:bg-blue-50"
+                                            >
+                                                Pharmacy Profile
+                                            </button>
+                                        )}
+                                        <button
+                                            onClick={() => {
+                                                localStorage.removeItem('authToken');
+                                                localStorage.removeItem('userRole');
+                                                navigate('/');
+                                                setIsMenuOpen(false);
+                                                window.location.reload();
+                                            }}
+                                            className="block w-full text-left px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-blue-600 hover:bg-blue-50"
+                                        >
+                                            Logout
+                                        </button>
+                                    </>
                                 ) : (
                                     <>
                                         <button

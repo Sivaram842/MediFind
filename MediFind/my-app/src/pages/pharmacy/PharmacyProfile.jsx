@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { Plus, Edit2, Trash2, X, Package, DollarSign, Hash } from 'lucide-react';
+import { Plus, Edit2, Trash2, X, Package, DollarSign, Hash, User } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
 const PharmacyProfile = () => {
   const [medicines, setMedicines] = useState([
@@ -34,6 +35,8 @@ const PharmacyProfile = () => {
     price: '',
     stock: ''
   });
+  const [showLogoutPopup, setShowLogoutPopup] = useState(false);
+  const navigate = useNavigate();
 
   // Pharmacy user info (in real app, this would come from auth context)
   const pharmacyUser = {
@@ -141,6 +144,48 @@ const PharmacyProfile = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-6">
       <div className="max-w-7xl mx-auto">
+        <div className="flex justify-between items-center mb-6">
+          <div
+            className="flex items-center cursor-pointer"
+            onClick={() => navigate('/')}
+          >
+            <div className="bg-gradient-to-r from-blue-600 to-purple-600 p-2 rounded-lg mr-3">
+              <Package className="h-6 w-6 text-white" />
+            </div>
+            <span className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+              MediFind
+            </span>
+          </div>
+
+          {/* Profile icon with logout dropdown */}
+          {localStorage.getItem('authToken') && (
+            <div className="relative">
+              <button
+                className="flex items-center space-x-1 text-gray-700 hover:text-blue-600 px-3 py-2"
+                onClick={() => setShowLogoutPopup(!showLogoutPopup)}
+              >
+                <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center">
+                  <User className="h-5 w-5 text-blue-600" />
+                </div>
+              </button>
+
+              {showLogoutPopup && (
+                <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-50">
+                  <button
+                    onClick={() => {
+                      localStorage.removeItem('authToken');
+                      navigate('/');
+                    }}
+                    className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-600"
+                  >
+                    Logout
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
         {/* Header */}
         <div className="mb-8">
           <div className="bg-white rounded-2xl shadow-lg p-6 border border-blue-100">

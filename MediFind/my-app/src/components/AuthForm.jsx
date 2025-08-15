@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { API_BASE_URL } from "../config";
 
 const AuthForm = ({ type }) => {
-    const [selectedRole, setSelectedRole] = useState(type === "register" ? null : "User");
+    const [selectedRole, setSelectedRole] = useState(type === "register" ? null : "user");
     const [formData, setFormData] = useState({
         name: "",
         email: "",
@@ -19,7 +19,6 @@ const AuthForm = ({ type }) => {
         const { name, value } = e.target;
         setFormData((prev) => ({ ...prev, [name]: value }));
 
-        // Password strength check
         if (name === "password") {
             checkPasswordStrength(value);
         }
@@ -39,13 +38,14 @@ const AuthForm = ({ type }) => {
     };
 
     const validateForm = () => {
+        setError("");
         if (type === "register") {
             if (!formData.name.trim()) {
                 setError("Name is required");
                 return false;
             }
             if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
-                setError("Please enter a valid email");
+                setError("Please enter a valid email address");
                 return false;
             }
             if (formData.password.length < 8) {
@@ -58,7 +58,7 @@ const AuthForm = ({ type }) => {
             }
         } else {
             if (!formData.email || !formData.password) {
-                setError("Email and password are required");
+                setError("Both email and password are required");
                 return false;
             }
         }
@@ -70,8 +70,6 @@ const AuthForm = ({ type }) => {
         if (!validateForm()) return;
 
         setIsLoading(true);
-        setError("");
-
         try {
             const res = await fetch(`${API_BASE_URL}/users/register`, {
                 method: "POST",
@@ -87,15 +85,19 @@ const AuthForm = ({ type }) => {
             const data = await res.json();
 
             if (res.ok) {
-                navigate("/login", { state: { registrationSuccess: true } });
+                navigate("/login", {
+                    state: {
+                        registrationSuccess: true,
+                        email: formData.email
+                    }
+                });
             } else {
                 setError(data.message || "Registration failed. Please try again.");
             }
         } catch (error) {
-            console.error("❌ Registration error:", error);
-            setError("Something went wrong. Please try again.");
-        }
-        finally {
+            console.error("Registration error:", error);
+            setError("Network error. Please check your connection and try again.");
+        } finally {
             setIsLoading(false);
         }
     };
@@ -105,8 +107,6 @@ const AuthForm = ({ type }) => {
         if (!validateForm()) return;
 
         setIsLoading(true);
-        setError("");
-
         try {
             const res = await fetch(`${API_BASE_URL}/users/login`, {
                 method: "POST",
@@ -121,18 +121,21 @@ const AuthForm = ({ type }) => {
             const data = await res.json();
 
             if (res.ok) {
-                // Store the token in localStorage or context
                 localStorage.setItem("authToken", data.token);
-                // Redirect based on role
-                const role = data.role || data.user?.role;
-                navigate(role === "pharmacy" ? "/pharmacy/profile" : "/");
+                localStorage.setItem("userRole", data.role || data.user?.role);
 
+                const role = data.role || data.user?.role;
+                if (role === "pharmacy") {
+                    navigate("/pharmacy/profile");
+                } else {
+                    navigate("/");
+                }
             } else {
-                setError(data.message || "Login failed. Please check your credentials.");
+                setError(data.message || "Invalid credentials. Please try again.");
             }
         } catch (err) {
             console.error("Login error:", err);
-            setError("Network error. Please try again.", err);
+            setError("Network error. Please try again later.");
         } finally {
             setIsLoading(false);
         }
@@ -140,14 +143,19 @@ const AuthForm = ({ type }) => {
 
     const getPasswordStrengthColor = () => {
         switch (passwordStrength) {
-            case "strong":
-                return "bg-green-500";
-            case "medium":
-                return "bg-yellow-500";
-            case "weak":
-                return "bg-red-500";
-            default:
-                return "bg-gray-300";
+            case "strong": return "bg-green-500";
+            case "medium": return "bg-yellow-500";
+            case "weak": return "bg-red-500";
+            default: return "bg-gray-300";
+        }
+    };
+
+    const getPasswordStrengthText = () => {
+        switch (passwordStrength) {
+            case "strong": return "Strong password";
+            case "medium": return "Medium strength - add numbers/symbols";
+            case "weak": return "Weak password - use more characters";
+            default: return "Password strength";
         }
     };
 
@@ -160,16 +168,16 @@ const AuthForm = ({ type }) => {
                         <p className="mb-8 text-gray-500">Please select your role to continue:</p>
                         <div className="space-y-4">
                             <button
-                                onClick={() => setSelectedRole("User")}
+                                onClick={() => setSelectedRole("user")}
                                 className="w-full py-3 bg-blue-500 text-white rounded-lg font-semibold hover:bg-blue-600 transition"
                             >
-                                User
+                                Regular User
                             </button>
                             <button
-                                onClick={() => setSelectedRole("Pharmacy")}
+                                onClick={() => setSelectedRole("pharmacy")}
                                 className="w-full py-3 bg-green-500 text-white rounded-lg font-semibold hover:bg-green-600 transition"
                             >
-                                Pharmacy
+                                Pharmacy Owner
                             </button>
                         </div>
                     </div>
@@ -178,7 +186,7 @@ const AuthForm = ({ type }) => {
                 {(type === "login" || selectedRole) && (
                     <div>
                         <h2 className="text-xl font-bold mb-4 text-gray-800">
-                            {type === "login" ? "Login" : "Register"} as {selectedRole || "User"}
+                            {type === "login" ? "Login" : "Register"} as {selectedRole === "pharmacy" ? "Pharmacy" : "User"}
                         </h2>
 
                         {error && (
@@ -187,10 +195,7 @@ const AuthForm = ({ type }) => {
                             </div>
                         )}
 
-                        <form
-                            onSubmit={type === "register" ? handleRegisterSubmit : handleLoginSubmit}
-                            className="space-y-4"
-                        >
+                        <form onSubmit={type === "register" ? handleRegisterSubmit : handleLoginSubmit} className="space-y-4">
                             {type === "register" && (
                                 <div>
                                     <input
@@ -233,20 +238,13 @@ const AuthForm = ({ type }) => {
                                             <div
                                                 className={`h-2 rounded-full ${getPasswordStrengthColor()}`}
                                                 style={{
-                                                    width:
-                                                        passwordStrength === "weak"
-                                                            ? "33%"
-                                                            : passwordStrength === "medium"
-                                                                ? "66%"
-                                                                : "100%",
+                                                    width: passwordStrength === "weak" ? "33%" :
+                                                        passwordStrength === "medium" ? "66%" : "100%",
                                                 }}
                                             ></div>
                                         </div>
                                         <p className="text-xs mt-1 text-gray-600">
-                                            Password strength:{" "}
-                                            <span className="capitalize font-medium">
-                                                {passwordStrength || "none"}
-                                            </span>
+                                            {getPasswordStrengthText()}
                                         </p>
                                     </div>
                                 )}
