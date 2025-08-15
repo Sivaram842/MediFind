@@ -1,10 +1,11 @@
-import React, { useState, useContext } from 'react';
+import React, { useState, useContext, useEffect } from 'react';
 import { MediFindContext } from '../context/MediFindContext';
 import {
     Search,
     MapPin,
     Package,
     Users,
+    User,
     Menu,
     X,
     Facebook,
@@ -18,9 +19,24 @@ import SearchBar from '../components/SearchBar'; // Adjust path as needed
 const HomePage = () => {
     const { currentPage, setCurrentPage, setLocation } = useContext(MediFindContext);
     const navigate = useNavigate();
+    const [isLoggingOut, setIsLoggingOut] = useState(false);
+    const [showLogoutPopup, setShowLogoutPopup] = useState(false);
+    const [hoverTimeout, setHoverTimeout] = useState(null);
     const [isMenuOpen, setIsMenuOpen] = useState(false);
 
     const toggleMenu = () => setIsMenuOpen(!isMenuOpen);
+
+    // Add this effect to handle click-away
+    useEffect(() => {
+        const handleClickOutside = (e) => {
+            if (showLogoutPopup && !e.target.closest('.relative')) {
+                setShowLogoutPopup(false);
+            }
+        };
+
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, [showLogoutPopup]);
 
     return (
         <div className="min-h-screen bg-white">
@@ -46,26 +62,60 @@ const HomePage = () => {
                             <button
                                 onClick={() => setCurrentPage('home')}
                                 className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${currentPage === 'home'
-                                        ? 'text-blue-600 bg-blue-50'
-                                        : 'text-gray-700 hover:text-blue-600 hover:bg-blue-50'
+                                    ? 'text-blue-600 bg-blue-50'
+                                    : 'text-gray-700 hover:text-blue-600 hover:bg-blue-50'
                                     }`}
                             >
                                 Home
                             </button>
-                            <button
-                                onClick={() => navigate('/login')}
-                                className="text-gray-700 hover:text-blue-600 px-3 py-2 rounded-md text-sm font-medium transition-colors"
-                            >
-                                Login
-                            </button>
-                            <button
-                                onClick={() => navigate('/register')}
-                                className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 py-2 rounded-lg text-sm font-medium hover:from-blue-700 hover:to-purple-700 transition-all transform hover:scale-105"
-                            >
-                                Register
-                            </button>
-                        </div>
 
+                            {/* Check if user is logged in */}
+                            {localStorage.getItem('authToken') ? (
+                                <div className="relative">
+                                    <button
+                                        className="flex items-center space-x-1 text-gray-700 hover:text-blue-600 px-3 py-2"
+                                        onClick={() => setShowLogoutPopup(!showLogoutPopup)}
+                                    >
+                                        <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center">
+                                            <User className="h-5 w-5 text-blue-600" />
+                                        </div>
+                                    </button>
+
+                                    {showLogoutPopup && (
+                                        <div
+                                            className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-50"
+                                            onClick={(e) => e.stopPropagation()} // Prevent click from reaching parent
+                                        >
+                                            <button
+                                                onClick={() => {
+                                                    localStorage.removeItem('authToken');
+                                                    navigate('/');
+                                                    window.location.reload();
+                                                }}
+                                                className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-600"
+                                            >
+                                                Logout
+                                            </button>
+                                        </div>
+                                    )}
+                                </div>
+                            ) : (
+                                <>
+                                    <button
+                                        onClick={() => navigate('/login')}
+                                        className="text-gray-700 hover:text-blue-600 px-3 py-2 rounded-md text-sm font-medium transition-colors"
+                                    >
+                                        Login
+                                    </button>
+                                    <button
+                                        onClick={() => navigate('/register')}
+                                        className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 py-2 rounded-lg text-sm font-medium hover:from-blue-700 hover:to-purple-700 transition-all transform hover:scale-105"
+                                    >
+                                        Register
+                                    </button>
+                                </>
+                            )}
+                        </div>
                         {/* Mobile menu button */}
                         <div className="md:hidden">
                             <button onClick={toggleMenu} className="text-gray-700 hover:text-blue-600 p-2">
@@ -87,18 +137,35 @@ const HomePage = () => {
                                 >
                                     Home
                                 </button>
-                                <button
-                                    onClick={() => navigate('/login')}
-                                    className="block w-full text-left px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-blue-600 hover:bg-blue-50"
-                                >
-                                    Login
-                                </button>
-                                <button
-                                    onClick={() => navigate('/register')}
-                                    className="block w-full text-left px-3 py-2 rounded-md text-base font-medium bg-gradient-to-r from-blue-600 to-purple-600 text-white hover:from-blue-700 hover:to-purple-700"
-                                >
-                                    Register
-                                </button>
+
+                                {localStorage.getItem('authToken') ? (
+                                    <button
+                                        onClick={() => {
+                                            localStorage.removeItem('authToken');
+                                            navigate('/');
+                                            setIsMenuOpen(false);
+                                            window.location.reload();
+                                        }}
+                                        className="block w-full text-left px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-blue-600 hover:bg-blue-50"
+                                    >
+                                        Logout
+                                    </button>
+                                ) : (
+                                    <>
+                                        <button
+                                            onClick={() => navigate('/login')}
+                                            className="block w-full text-left px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-blue-600 hover:bg-blue-50"
+                                        >
+                                            Login
+                                        </button>
+                                        <button
+                                            onClick={() => navigate('/register')}
+                                            className="block w-full text-left px-3 py-2 rounded-md text-base font-medium bg-gradient-to-r from-blue-600 to-purple-600 text-white hover:from-blue-700 hover:to-purple-700"
+                                        >
+                                            Register
+                                        </button>
+                                    </>
+                                )}
                             </div>
                         </div>
                     )}
