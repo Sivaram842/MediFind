@@ -7,7 +7,7 @@ import HomePage from "./pages/HomePage";
 import PharmacyDashboard from "./pages/pharmacy/PharmacyProfile";
 import AddMedicine from "./pages/pharmacy/AddMedicine";
 import EditMedicine from "./pages/pharmacy/EditMedicine";
-
+import PharmacyProfile from "./pages/pharmacy/PharmacyProfile";
 const App = () => {
   const { user, setUser } = useContext(MediFindContext);
 
@@ -18,7 +18,7 @@ const App = () => {
           <Route path="/" element={<HomePage />} />
           <Route path="/login" element={<AuthForm type="login" />} />
           <Route path="/register" element={<AuthForm type="register" />} />
-
+          <Route path="/pharmacy/profile" element={<PharmacyProfile />} />
           {/* Protect these routes if user is not logged in */}
           <Route
             path="/pharmacy-dashboard"

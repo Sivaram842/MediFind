@@ -124,8 +124,9 @@ const AuthForm = ({ type }) => {
                 // Store the token in localStorage or context
                 localStorage.setItem("authToken", data.token);
                 // Redirect based on role
-                const role = data.user?.role || selectedRole.toLowerCase();
-                navigate(role === "pharmacy" ? "/pharmacy-dashboard" : "/");
+                const role = data.role || data.user?.role;
+                navigate(role === "pharmacy" ? "/pharmacy/profile" : "/");
+
             } else {
                 setError(data.message || "Login failed. Please check your credentials.");
             }
