@@ -5,7 +5,7 @@ const userSchema = new mongoose.Schema({
     email: { type: String, required: true, unique: true },
     phone: { type: String },
     password: { type: String, required: true }, // Store hashed passwords
-    role: { type: String, enum: ['user', 'admin', 'pharmacyAdmin'], default: 'user' },
+    role: { type: String, enum: ['user', 'admin', 'pharmacy'], default: 'user' },
     address: { type: String },
     createdAt: { type: Date, default: Date.now }
 });

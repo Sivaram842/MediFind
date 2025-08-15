@@ -124,11 +124,13 @@ const AuthForm = ({ type }) => {
                 // Store the token in localStorage or context
                 localStorage.setItem("authToken", data.token);
                 // Redirect based on role
-                navigate(data.user.role === "pharmacy" ? "/pharmacy-dashboard" : "/");
+                const role = data.user?.role || selectedRole.toLowerCase();
+                navigate(role === "pharmacy" ? "/pharmacy-dashboard" : "/");
             } else {
                 setError(data.message || "Login failed. Please check your credentials.");
             }
         } catch (err) {
+            console.error("Login error:", err);
             setError("Network error. Please try again.", err);
         } finally {
             setIsLoading(false);
