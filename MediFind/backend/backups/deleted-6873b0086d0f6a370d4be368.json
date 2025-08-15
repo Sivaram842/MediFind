@@ -1,0 +1,14 @@
+{
+  "_id": "6873b0086d0f6a370d4be368",
+  "name": "Paracetamol",
+  "brand": "Cipla",
+  "price": 30,
+  "stock": 200,
+  "expiryDate": "2026-12-31T00:00:00.000Z",
+  "category": "Tablet",
+  "dosage": "500mg",
+  "prescriptionRequired": true,
+  "pharmacy": "6873afa46d0f6a370d4be364",
+  "addedAt": "2025-07-13T13:09:28.343Z",
+  "__v": 0
+}
