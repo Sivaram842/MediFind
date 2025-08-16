@@ -4,7 +4,8 @@ import axios from "axios";
 
 export const MediFindContext = createContext(null);
 
-const API_BASE_URL = "https://medifind-7.onrender.com" // Change to your backend URL
+// config.js
+export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
 // Axios instance
 const api = axios.create({ baseURL: API_BASE_URL });
