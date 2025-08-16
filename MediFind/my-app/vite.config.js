@@ -7,7 +7,7 @@ export default defineConfig({
   server: {
     proxy: {
       "/api": {
-        target: "http://localhost:4000", // your backend
+        target: "https://medifind-7.onrender.com", // your backend
         changeOrigin: true,
       },
     },

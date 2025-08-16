@@ -2,7 +2,7 @@ import axios from "axios";
 
 // Create Axios instance with base URL
 const API = axios.create({
-    baseURL: import.meta.env.VITE_API_URL || "http://localhost:4000/api",
+    baseURL: import.meta.env.VITE_API_URL,
     withCredentials: true, // Use if you're working with cookies (optional)
 });
 
