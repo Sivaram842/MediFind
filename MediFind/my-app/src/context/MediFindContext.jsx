@@ -19,7 +19,7 @@ const MediFindProvider = ({ children }) => {
   // ✅ Add page state for navigation
   const [currentPage, setCurrentPage] = useState("home"); // default page
 
-  // Attach token to all requests
+  // Attach the token to all requests
   useEffect(() => {
     const id = api.interceptors.request.use((config) => {
       if (token) config.headers.Authorization = `Bearer ${token}`;
