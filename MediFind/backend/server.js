@@ -1,43 +1,43 @@
-import express from "express"
-import cors from "cors"
+import express from "express";
+import cors from "cors";
+import dotenv from "dotenv";
 import { connectDB } from "./config/db.js";
 import userRouter from "./routes/userRoutes.js";
 import pharmacyRouter from "./routes/pharmacyRoutes.js";
 import medicineRouter from "./routes/medicineRoutes.js";
-import dotenv from "dotenv";
+
+// Load environment variables
 dotenv.config();
 
-
-
-
-
-
-
-// app config
-const app = express()
+// App config
+const app = express();
 const port = process.env.PORT || 4000;
 
-//middleware
+// Middleware
+app.use(express.json());
 
-app.use(express.json())
-app.use(cors())
+// Allow CORS only from your frontend (for security in production)
+app.use(
+    cors({
+        origin: process.env.CLIENT_URL || "*", // e.g., "https://medifind.netlify.app"
+        credentials: true,
+    })
+);
 
-//db connection
-
+// DB connection
 connectDB();
 
-//api endpoints
+// API endpoints
+app.use("/api/users", userRouter);
+app.use("/api/pharmacies", pharmacyRouter);
+app.use("/api/medicines", medicineRouter);
 
-app.use("/api/users", userRouter)
-app.use("/api/pharmacies", pharmacyRouter)
-app.use("/api/medicines", medicineRouter)
-
+// Default route
 app.get("/", (req, res) => {
-    res.send("API Working")
-})
+    res.send("✅ MediFind API is working!");
+});
 
+// Start server
 app.listen(port, () => {
-    console.log(`Server started on http://localhost:${port}`)
-})
-
-// mongodb+srv://sivaramp842:9032488161@cluster0.mlamomd.mongodb.net/?
+    console.log(`🚀 Server running on port ${port}`);
+});

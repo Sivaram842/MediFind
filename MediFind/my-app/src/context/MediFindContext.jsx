@@ -1,14 +1,8 @@
 // src/context/MediFindContext.jsx
 import React, { createContext, useEffect, useState, useMemo } from "react";
-import axios from "axios";
+import API from "../utils/axiosInstance.js";
 
 export const MediFindContext = createContext(null);
-
-// config.js
-export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
-
-// Axios instance
-const api = axios.create({ baseURL: API_BASE_URL });
 
 const MediFindProvider = ({ children }) => {
   const [token, setToken] = useState(localStorage.getItem("token") || "");
@@ -20,20 +14,12 @@ const MediFindProvider = ({ children }) => {
   // ✅ Add page state for navigation
   const [currentPage, setCurrentPage] = useState("home"); // default page
 
-  // Attach the token to all requests
-  useEffect(() => {
-    const id = api.interceptors.request.use((config) => {
-      if (token) config.headers.Authorization = `Bearer ${token}`;
-      return config;
-    });
-    return () => api.interceptors.request.eject(id);
-  }, [token]);
-
+  // Fetch user profile when token changes
   useEffect(() => {
     const fetchUser = async () => {
       if (token && !user) {
         try {
-          const { data } = await api.get("/api/users/profile");
+          const { data } = await API.get("/api/users/profile");
           setUser(data);
         } catch (err) {
           logout(); // token might be invalid
@@ -43,16 +29,16 @@ const MediFindProvider = ({ children }) => {
     fetchUser();
   }, [token]);
 
+  // Auth
   const register = async (formData) => {
-    const { data } = await api.post("/api/users/register", formData);
+    const { data } = await API.post("/api/users/register", formData);
     return data;
   };
 
-  // Login function
   const login = async (email, password) => {
     try {
       setLoading(true);
-      const { data } = await api.post("/api/users/login", { email, password });
+      const { data } = await API.post("/api/users/login", { email, password });
       setToken(data.token);
       localStorage.setItem("token", data.token);
       setUser(data.user);
@@ -64,7 +50,6 @@ const MediFindProvider = ({ children }) => {
     }
   };
 
-  // Logout
   const logout = () => {
     setToken("");
     localStorage.removeItem("token");
@@ -74,59 +59,60 @@ const MediFindProvider = ({ children }) => {
     setCurrentPage("login"); // ✅ Redirect to login after logout
   };
 
+  // Pharmacy CRUD
   const addPharmacy = async (pharmacyData) => {
-    const { data } = await api.post("/api/pharmacies", pharmacyData);
+    const { data } = await API.post("/api/pharmacies", pharmacyData);
     return data;
   };
 
   const getAllPharmacies = async () => {
-    const { data } = await api.get("/api/pharmacies");
+    const { data } = await API.get("/api/pharmacies");
     return data;
   };
 
   const getPharmacyById = async (id) => {
-    const { data } = await api.get(`/api/pharmacies/${id}`);
+    const { data } = await API.get(`/api/pharmacies/${id}`);
     return data;
   };
 
   const updatePharmacy = async (id, updateData) => {
-    const { data } = await api.put(`/api/pharmacies/${id}`, updateData);
+    const { data } = await API.put(`/api/pharmacies/${id}`, updateData);
     return data;
   };
 
   const deletePharmacy = async (id) => {
-    const { data } = await api.delete(`/api/pharmacies/${id}`);
+    const { data } = await API.delete(`/api/pharmacies/${id}`);
     return data;
   };
 
+  // Medicine CRUD
   const addMedicine = async (medicineData) => {
-    const { data } = await api.post("/api/medicines", medicineData);
+    const { data } = await API.post("/api/medicines", medicineData);
     return data;
   };
 
   const getAllMedicines = async () => {
-    const { data } = await api.get("/api/medicines");
+    const { data } = await API.get("/api/medicines");
     return data;
   };
 
   const getMedicineById = async (id) => {
-    const { data } = await api.get(`/api/medicines/${id}`);
+    const { data } = await API.get(`/api/medicines/${id}`);
     return data;
   };
 
   const updateMedicine = async (id, updateData) => {
-    const { data } = await api.put(`/api/medicines/${id}`, updateData);
+    const { data } = await API.put(`/api/medicines/${id}`, updateData);
     return data;
   };
 
   const deleteMedicine = async (id) => {
-    const { data } = await api.delete(`/api/medicines/${id}`);
+    const { data } = await API.delete(`/api/medicines/${id}`);
     return data;
   };
 
   const value = useMemo(
     () => ({
-      api,
       token,
       setToken,
       user,

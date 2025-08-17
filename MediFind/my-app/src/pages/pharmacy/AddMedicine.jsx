@@ -1,10 +1,8 @@
-import React, { useState, useContext } from "react";
-import axios from "axios";
-import { MediFindContext } from "../../context/MediFindContext";
+import React, { useState } from "react";
+import API from "../../utils/axiosInstance";
 import { useNavigate } from "react-router-dom";
 
 const AddMedicine = () => {
-    const { token, API_BASE_URL } = useContext(MediFindContext);
     const navigate = useNavigate();
 
     const [formData, setFormData] = useState({
@@ -28,11 +26,8 @@ const AddMedicine = () => {
         setError("");
 
         try {
-            await axios.post(`${API_BASE_URL}/api/medicines`, formData, {
-                headers: {
-                    Authorization: `Bearer ${token}`,
-                },
-            });
+            // Use API instance -> token will be attached automatically
+            await API.post("/api/medicines", formData);
 
             navigate("/pharmacy/medicines"); // Redirect after success
         } catch (err) {

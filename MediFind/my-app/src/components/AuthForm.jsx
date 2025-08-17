@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { API_BASE_URL } from "../config";
+import API from "../utils/axiosInstance";
 
 const AuthForm = ({ type }) => {
     const [selectedRole, setSelectedRole] = useState(type === "register" ? null : "user");
@@ -64,27 +64,24 @@ const AuthForm = ({ type }) => {
         }
         return true;
     };
-
     const handleRegisterSubmit = async (e) => {
         e.preventDefault();
         if (!validateForm()) return;
 
         setIsLoading(true);
         try {
-            const res = await fetch(`${API_BASE_URL}/users/register`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    role: selectedRole.toLowerCase(),
-                    name: formData.name,
-                    email: formData.email,
-                    password: formData.password,
-                }),
+            const res = await API.post("/api/users/register", {
+                role: selectedRole.toLowerCase(),
+                name: formData.name,
+                email: formData.email,
+                password: formData.password,
             });
 
-            const data = await res.json();
+            const data = res.data; // ✅ Axios gives parsed JSON here
 
-            if (res.ok) {
+            if (res.status === 201 || res.status === 200) {
+                console.log("url", API);
+
                 navigate("/login", {
                     state: {
                         registrationSuccess: true,
@@ -95,8 +92,11 @@ const AuthForm = ({ type }) => {
                 setError(data.message || "Registration failed. Please try again.");
             }
         } catch (error) {
+            console.log(import.meta.env.VITE_API_URL);
+
+
             console.error("Registration error:", error);
-            setError("Network error. Please check your connection and try again.");
+            setError(error.response?.data?.message || "Network error. Please check your connection.");
         } finally {
             setIsLoading(false);
         }
@@ -108,38 +108,32 @@ const AuthForm = ({ type }) => {
 
         setIsLoading(true);
         try {
-            const res = await fetch(`${API_BASE_URL}/users/login`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    role: selectedRole.toLowerCase(),
-                    email: formData.email,
-                    password: formData.password,
-                }),
+            const res = await API.post("/api/users/login", {
+                role: selectedRole.toLowerCase(),
+                email: formData.email,
+                password: formData.password,
             });
 
-            const data = await res.json();
+            const data = res.data; // ✅ parsed JSON
 
-            if (res.ok) {
-                localStorage.setItem("authToken", data.token);
-                localStorage.setItem("userRole", data.role || data.user?.role);
+            // Save token & role
+            localStorage.setItem("token", data.token);
+            localStorage.setItem("userRole", data.role || data.user?.role);
 
-                const role = data.role || data.user?.role;
-                if (role === "pharmacy") {
-                    navigate("/pharmacy/profile");
-                } else {
-                    navigate("/");
-                }
+            const role = data.role || data.user?.role;
+            if (role === "pharmacy") {
+                navigate("/pharmacy/profile");
             } else {
-                setError(data.message || "Invalid credentials. Please try again.");
+                navigate("/");
             }
         } catch (err) {
             console.error("Login error:", err);
-            setError("Network error. Please try again later.");
+            setError(err.response?.data?.message || "Invalid credentials. Please try again.");
         } finally {
             setIsLoading(false);
         }
     };
+
 
     const getPasswordStrengthColor = () => {
         switch (passwordStrength) {
