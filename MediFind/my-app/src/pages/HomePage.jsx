@@ -71,7 +71,7 @@ const HomePage = () => {
                             </button>
 
                             {/* Check if user is logged in */}
-                            {localStorage.getItem('authToken') ? (
+                            {localStorage.getItem('token') ? (
                                 <div className="relative">
                                     <button
                                         className="flex items-center space-x-1 text-gray-700 hover:text-blue-600 px-3 py-2"
@@ -103,7 +103,7 @@ const HomePage = () => {
                                                     </button>
                                                     <button
                                                         onClick={() => {
-                                                            localStorage.removeItem('authToken');
+                                                            localStorage.removeItem('token');
                                                             localStorage.removeItem('userRole');
                                                             navigate('/');
                                                             setShowLogoutPopup(false);
@@ -117,7 +117,7 @@ const HomePage = () => {
                                             ) : (
                                                 <button
                                                     onClick={() => {
-                                                        localStorage.removeItem('authToken');
+                                                        localStorage.removeItem('token');
                                                         localStorage.removeItem('userRole');
                                                         navigate('/');
                                                         setShowLogoutPopup(false);
@@ -171,7 +171,7 @@ const HomePage = () => {
                                     Home
                                 </button>
 
-                                {localStorage.getItem('authToken') ? (
+                                {localStorage.getItem('token') ? (
                                     <>
                                         {localStorage.getItem('userRole') === 'pharmacy' && (
                                             <button
@@ -186,7 +186,7 @@ const HomePage = () => {
                                         )}
                                         <button
                                             onClick={() => {
-                                                localStorage.removeItem('authToken');
+                                                localStorage.removeItem('token');
                                                 localStorage.removeItem('userRole');
                                                 navigate('/');
                                                 setIsMenuOpen(false);
