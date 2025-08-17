@@ -6,20 +6,28 @@ import userRouter from "./routes/userRoutes.js";
 import pharmacyRouter from "./routes/pharmacyRoutes.js";
 import medicineRouter from "./routes/medicineRoutes.js";
 
-// Load environment variables
 dotenv.config();
 
-// App config
 const app = express();
 const port = process.env.PORT || 4000;
 
-// Middleware
 app.use(express.json());
 
-// Allow CORS only from your frontend (for security in production)
+// ✅ Allow multiple origins
+const allowedOrigins = [
+    "http://localhost:5173",
+    "https://medifindx.netlify.app",  // your production frontend
+];
+
 app.use(
     cors({
-        origin: process.env.CLIENT_URL || "*", // e.g., "https://medifind.netlify.app"
+        origin: function (origin, callback) {
+            if (!origin || allowedOrigins.includes(origin)) {
+                callback(null, true);
+            } else {
+                callback(new Error("Not allowed by CORS"));
+            }
+        },
         credentials: true,
     })
 );
@@ -27,17 +35,15 @@ app.use(
 // DB connection
 connectDB();
 
-// API endpoints
+// Routes
 app.use("/api/users", userRouter);
 app.use("/api/pharmacies", pharmacyRouter);
 app.use("/api/medicines", medicineRouter);
 
-// Default route
 app.get("/", (req, res) => {
     res.send("✅ MediFind API is working!");
 });
 
-// Start server
 app.listen(port, () => {
     console.log(`🚀 Server running on port ${port}`);
 });
