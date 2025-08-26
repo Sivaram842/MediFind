@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Plus, Edit2, Trash2, X, Package, DollarSign, Hash, User } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import axios from 'axios'; // 👈 Import axios
 
 const PharmacyProfile = () => {
   const [medicines, setMedicines] = useState([
@@ -20,13 +21,13 @@ const PharmacyProfile = () => {
     }
   ]);
 
+  // ... (rest of your state variables)
   const [formData, setFormData] = useState({
-    name: '',
-    description: '',
-    price: '',
-    stock: ''
-  });
-
+    name: "",
+    description: "",
+    price: "",
+    stock: ""
+  })
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editingMedicine, setEditingMedicine] = useState(null);
   const [editFormData, setEditFormData] = useState({
@@ -60,28 +61,67 @@ const PharmacyProfile = () => {
     }));
   };
 
-  const handleSubmit = () => {
-
+  // 1. Update handleSubmit to make an API call
+  const handleSubmit = async () => {
+    console.log('Current token:', localStorage.getItem('token')); // Add this line
     if (!formData.name || !formData.description || !formData.price || !formData.stock) {
       alert('Please fill in all fields');
       return;
     }
+    // ... rest of your code
 
+    // Prepare data to send to the backend
     const newMedicine = {
-      id: Date.now(),
       name: formData.name,
       description: formData.description,
       price: parseFloat(formData.price),
       stock: parseInt(formData.stock)
     };
 
-    setMedicines(prev => [...prev, newMedicine]);
-    setFormData({
-      name: '',
-      description: '',
-      price: '',
-      stock: ''
-    });
+    try {
+      // Get the authentication token from localStorage
+      const token = localStorage.getItem('token');
+      if (!token) {
+        alert('You must be logged in to add a medicine.');
+        navigate('/login'); // Or wherever your login page is
+        return;
+      }
+
+      const response = await axios.post(
+        'https://medifind-7.onrender.com/api/medicines',
+        newMedicine,
+        {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+          },
+          withCredentials: true  // 👈 This is crucial for cookies/CORS
+        }
+      );
+
+      // Add the new medicine (with the ID from the database) to the local state
+      setMedicines(prev => [...prev, response.data.newMedicine]);
+      alert('Medicine added successfully!');
+
+      // Clear the form
+      setFormData({
+        name: '',
+        description: '',
+        price: '',
+        stock: ''
+      });
+
+    } catch (error) {
+      console.error('Error adding medicine:', error);
+      if (error.response?.status === 401) {
+        alert('Your session has expired. Please login again.');
+        localStorage.removeItem('token');
+        navigate('/login');
+      } else {
+        alert('Failed to add medicine. Please try again.');
+      }
+    }
   };
 
   const handleDelete = (id) => {
@@ -158,7 +198,7 @@ const PharmacyProfile = () => {
           </div>
 
           {/* Profile icon with logout dropdown */}
-          {localStorage.getItem('authToken') && (
+          {localStorage.getItem('token') && (
             <div className="relative">
               <button
                 className="flex items-center space-x-1 text-gray-700 hover:text-blue-600 px-3 py-2"
@@ -173,7 +213,7 @@ const PharmacyProfile = () => {
                 <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-50">
                   <button
                     onClick={() => {
-                      localStorage.removeItem('authToken');
+                      localStorage.removeItem('token');
                       navigate('/');
                     }}
                     className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-600"
