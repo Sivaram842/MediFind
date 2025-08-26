@@ -19,7 +19,6 @@ export const addMedicine = async (req, res) => {
             prescriptionRequired
         } = req.body;
 
-        const pharmacyId = req.user._id; // authenticated user
 
         const pharmacy = await Pharmacy.findOne({ user: req.user._id });
         if (!pharmacy) return res.status(404).json({ message: "Pharmacy not found for this user" });
@@ -33,7 +32,7 @@ export const addMedicine = async (req, res) => {
             category,
             dosage,
             prescriptionRequired,
-            pharmacy: pharmacyId,
+            pharmacy: pharmacy._id,
         });
 
         const savedMedicine = await medicine.save();

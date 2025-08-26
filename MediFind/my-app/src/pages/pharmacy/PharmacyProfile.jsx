@@ -1,33 +1,16 @@
-import React, { useState } from 'react';
-import { Plus, Edit2, Trash2, X, Package, DollarSign, Hash, User } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Plus, Edit2, Trash2, X, Package, DollarSign, Hash, User, RefreshCw, AlertCircle, Key, Shield, Lock } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import axios from 'axios'; // 👈 Import axios
+import axios from 'axios';
 
 const PharmacyProfile = () => {
-  const [medicines, setMedicines] = useState([
-    {
-      id: 1,
-      name: "Paracetamol",
-      description: "Pain reliever and fever reducer",
-      price: 5.99,
-      stock: 100
-    },
-    {
-      id: 2,
-      name: "Amoxicillin",
-      description: "Antibiotic for bacterial infections",
-      price: 12.50,
-      stock: 45
-    }
-  ]);
-
-  // ... (rest of your state variables)
+  const [medicines, setMedicines] = useState([]);
   const [formData, setFormData] = useState({
     name: "",
     description: "",
     price: "",
     stock: ""
-  })
+  });
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editingMedicine, setEditingMedicine] = useState(null);
   const [editFormData, setEditFormData] = useState({
@@ -37,12 +20,111 @@ const PharmacyProfile = () => {
     stock: ''
   });
   const [showLogoutPopup, setShowLogoutPopup] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
+  const [debugInfo, setDebugInfo] = useState(null);
+  const [showDebugPanel, setShowDebugPanel] = useState(false);
+  const [userRole, setUserRole] = useState('');
+  const [userId, setUserId] = useState('');
   const navigate = useNavigate();
 
-  // Pharmacy user info (in real app, this would come from auth context)
   const pharmacyUser = {
     name: "MedCare Pharmacy",
     owner: "Dr. Sarah Johnson"
+  };
+
+  // Check token validity and extract user info
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    if (!token) {
+      alert('You must be logged in to access this page.');
+      navigate('/login');
+      return;
+    }
+
+    // Extract user info from token
+    try {
+      const payload = JSON.parse(atob(token.split('.')[1]));
+      const isExpired = payload.exp * 1000 < Date.now();
+
+      if (isExpired) {
+        alert('Your session has expired. Please login again.');
+        localStorage.removeItem('token');
+        navigate('/login');
+        return;
+      }
+
+      // Set user ID from token
+      setUserId(payload.id);
+
+      // Check if token contains role information
+      if (payload.role) {
+        setUserRole(payload.role);
+      } else {
+        // If no role in token, try to fetch user profile
+        fetchUserProfile(token);
+      }
+    } catch (error) {
+      console.error('Error parsing token:', error);
+    }
+
+    // Load medicines from API
+    loadMedicines();
+  }, []);
+
+  const fetchUserProfile = async (token) => {
+    try {
+      const response = await axios.get(
+        'https://medifind-7.onrender.com/api/users/me',
+        {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          }
+        }
+      );
+
+      if (response.data.role) {
+        setUserRole(response.data.role);
+      }
+    } catch (error) {
+      console.error('Error fetching user profile:', error);
+    }
+  };
+
+  const loadMedicines = async () => {
+    try {
+      setIsLoading(true);
+      const token = localStorage.getItem('token');
+      const response = await axios.get(
+        'https://medifind-7.onrender.com/api/medicines',
+        {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          }
+        }
+      );
+      setMedicines(response.data.medicines || []);
+    } catch (error) {
+      console.error('Error loading medicines:', error);
+      if (error.response?.status === 401 || error.response?.status === 403) {
+        handleAuthError(error);
+      } else {
+        setErrorMessage('Failed to load medicines. Please try again.');
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleAuthError = (error) => {
+    setDebugInfo({
+      status: error.response?.status,
+      statusText: error.response?.statusText,
+      data: error.response?.data,
+      headers: error.response?.headers
+    });
+
+    setErrorMessage('Authentication error. Please check your token permissions.');
   };
 
   const handleInputChange = (e) => {
@@ -53,24 +135,12 @@ const PharmacyProfile = () => {
     }));
   };
 
-  const handleEditInputChange = (e) => {
-    const { name, value } = e.target;
-    setEditFormData(prev => ({
-      ...prev,
-      [name]: value
-    }));
-  };
-
-  // 1. Update handleSubmit to make an API call
   const handleSubmit = async () => {
-    console.log('Current token:', localStorage.getItem('token')); // Add this line
     if (!formData.name || !formData.description || !formData.price || !formData.stock) {
       alert('Please fill in all fields');
       return;
     }
-    // ... rest of your code
 
-    // Prepare data to send to the backend
     const newMedicine = {
       name: formData.name,
       description: formData.description,
@@ -79,11 +149,13 @@ const PharmacyProfile = () => {
     };
 
     try {
-      // Get the authentication token from localStorage
+      setIsLoading(true);
+      setErrorMessage('');
+
       const token = localStorage.getItem('token');
       if (!token) {
         alert('You must be logged in to add a medicine.');
-        navigate('/login'); // Or wherever your login page is
+        navigate('/login');
         return;
       }
 
@@ -93,18 +165,14 @@ const PharmacyProfile = () => {
         {
           headers: {
             'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json',
-            'Accept': 'application/json'
-          },
-          withCredentials: true  // 👈 This is crucial for cookies/CORS
+            'Content-Type': 'application/json'
+          }
         }
       );
 
-      // Add the new medicine (with the ID from the database) to the local state
-      setMedicines(prev => [...prev, response.data.newMedicine]);
+      setMedicines(prev => [...prev, response.data]);
       alert('Medicine added successfully!');
 
-      // Clear the form
       setFormData({
         name: '',
         description: '',
@@ -114,13 +182,33 @@ const PharmacyProfile = () => {
 
     } catch (error) {
       console.error('Error adding medicine:', error);
-      if (error.response?.status === 401) {
-        alert('Your session has expired. Please login again.');
-        localStorage.removeItem('token');
-        navigate('/login');
+
+      // Capture debug information
+      setDebugInfo({
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        data: error.response?.data,
+        headers: error.response?.headers,
+        config: {
+          url: error.config?.url,
+          method: error.config?.method,
+          headers: error.config?.headers
+        }
+      });
+
+      if (error.response?.status === 401 || error.response?.status === 403) {
+        if (error.response?.data?.message === "Pharmacy not found for this user") {
+          setErrorMessage(`Pharmacy Account Required: You need a pharmacy account to add medicines.`);
+        } else {
+          setErrorMessage(`Permission Denied (403): ${error.response?.data?.message || 'Your account doesn\'t have permission to add medicines.'}`);
+        }
+      } else if (error.response?.data?.message) {
+        setErrorMessage(error.response.data.message);
       } else {
-        alert('Failed to add medicine. Please try again.');
+        setErrorMessage('Failed to add medicine. Please try again.');
       }
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -141,44 +229,24 @@ const PharmacyProfile = () => {
     setIsEditModalOpen(true);
   };
 
-  const handleEditSubmit = () => {
-
-    if (!editFormData.name || !editFormData.description || !editFormData.price || !editFormData.stock) {
-      alert('Please fill in all fields');
-      return;
+  const copyTokenToClipboard = () => {
+    const token = localStorage.getItem('token');
+    if (token) {
+      navigator.clipboard.writeText(token);
+      alert('Token copied to clipboard');
     }
-
-    const updatedMedicine = {
-      ...editingMedicine,
-      name: editFormData.name,
-      description: editFormData.description,
-      price: parseFloat(editFormData.price),
-      stock: parseInt(editFormData.stock)
-    };
-
-    setMedicines(prev => prev.map(medicine =>
-      medicine.id === editingMedicine.id ? updatedMedicine : medicine
-    ));
-
-    setIsEditModalOpen(false);
-    setEditingMedicine(null);
-    setEditFormData({
-      name: '',
-      description: '',
-      price: '',
-      stock: ''
-    });
   };
 
-  const closeModal = () => {
-    setIsEditModalOpen(false);
-    setEditingMedicine(null);
-    setEditFormData({
-      name: '',
-      description: '',
-      price: '',
-      stock: ''
-    });
+  const viewTokenDetails = () => {
+    const token = localStorage.getItem('token');
+    if (token) {
+      try {
+        const payload = JSON.parse(atob(token.split('.')[1]));
+        alert(`Token Details:\nExp: ${new Date(payload.exp * 1000).toLocaleString()}\nUser ID: ${payload.id}\nRole: ${payload.role || 'Not specified'}`);
+      } catch (error) {
+        alert('Error parsing token: ' + error.message);
+      }
+    }
   };
 
   return (
@@ -197,43 +265,157 @@ const PharmacyProfile = () => {
             </span>
           </div>
 
-          {/* Profile icon with logout dropdown */}
-          {localStorage.getItem('token') && (
-            <div className="relative">
-              <button
-                className="flex items-center space-x-1 text-gray-700 hover:text-blue-600 px-3 py-2"
-                onClick={() => setShowLogoutPopup(!showLogoutPopup)}
-              >
-                <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center">
-                  <User className="h-5 w-5 text-blue-600" />
-                </div>
-              </button>
+          <div className="flex items-center gap-4">
+            <button
+              onClick={() => setShowDebugPanel(!showDebugPanel)}
+              className="flex items-center gap-2 bg-yellow-100 text-yellow-800 px-4 py-2 rounded-lg hover:bg-yellow-200 transition-colors"
+            >
+              <AlertCircle className="w-4 h-4" />
+              Debug
+            </button>
 
-              {showLogoutPopup && (
-                <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-50">
-                  <button
-                    onClick={() => {
-                      localStorage.removeItem('token');
-                      navigate('/');
-                    }}
-                    className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-600"
-                  >
-                    Logout
-                  </button>
-                </div>
-              )}
-            </div>
-          )}
+            {localStorage.getItem('token') && (
+              <div className="relative">
+                <button
+                  className="flex items-center space-x-1 text-gray-700 hover:text-blue-600 px-3 py-2"
+                  onClick={() => setShowLogoutPopup(!showLogoutPopup)}
+                >
+                  <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center">
+                    <User className="h-5 w-5 text-blue-600" />
+                  </div>
+                </button>
+
+                {showLogoutPopup && (
+                  <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-50">
+                    <button
+                      onClick={copyTokenToClipboard}
+                      className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-600 flex items-center gap-2"
+                    >
+                      <Key className="w-4 h-4" />
+                      Copy Token
+                    </button>
+                    <button
+                      onClick={viewTokenDetails}
+                      className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-600 flex items-center gap-2"
+                    >
+                      <Shield className="w-4 h-4" />
+                      Token Info
+                    </button>
+                    <button
+                      onClick={() => {
+                        localStorage.removeItem('token');
+                        navigate('/');
+                      }}
+                      className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-600"
+                    >
+                      Logout
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
         </div>
 
-        {/* Header */}
+        {/* Debug Panel */}
+        {showDebugPanel && (
+          <div className="mb-6 bg-yellow-50 border border-yellow-200 rounded-xl p-4">
+            <h3 className="font-bold text-yellow-800 mb-2 flex items-center gap-2">
+              <AlertCircle className="w-5 h-5" />
+              Debug Information
+            </h3>
+
+            <div className="grid grid-cols-2 gap-4 mb-3">
+              <div>
+                <h4 className="text-sm font-semibold text-yellow-700">User ID</h4>
+                <p className="text-sm text-yellow-600 font-mono truncate">
+                  {userId || 'Not available'}
+                </p>
+              </div>
+
+              <div>
+                <h4 className="text-sm font-semibold text-yellow-700">User Role</h4>
+                <p className="text-sm text-yellow-600">
+                  {userRole || 'Unknown'}
+                </p>
+              </div>
+            </div>
+
+            {debugInfo && (
+              <div className="mt-3">
+                <h4 className="text-sm font-semibold text-yellow-700 mb-1">Last Error Details</h4>
+                <div className="bg-white p-3 rounded-lg border border-yellow-200 text-xs font-mono overflow-auto max-h-40">
+                  <pre>{JSON.stringify(debugInfo, null, 2)}</pre>
+                </div>
+              </div>
+            )}
+
+            <div className="mt-3 flex gap-2 flex-wrap">
+              <button
+                onClick={() => {
+                  localStorage.removeItem('token');
+                  navigate('/login');
+                }}
+                className="px-3 py-1 bg-yellow-500 text-white text-sm rounded-md hover:bg-yellow-600"
+              >
+                Clear Token & Relogin
+              </button>
+
+              <button
+                onClick={loadMedicines}
+                className="px-3 py-1 bg-blue-500 text-white text-sm rounded-md hover:bg-blue-600"
+              >
+                Test GET Request
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Error message display */}
+        {errorMessage && (
+          <div className="mb-4 p-4 bg-red-100 border border-red-400 text-red-700 rounded-xl">
+            <div className="flex items-center gap-2 mb-2">
+              <Lock className="w-5 h-5" />
+              <span className="font-semibold">Permission Error</span>
+            </div>
+            <p>{errorMessage}</p>
+            <div className="mt-2 text-sm">
+              <p>Your account may need to be associated with a pharmacy to add medicines.</p>
+              <p className="mt-1">Please contact the administrator for assistance.</p>
+            </div>
+          </div>
+        )}
+
+        {/* Header with role information */}
         <div className="mb-8">
           <div className="bg-white rounded-2xl shadow-lg p-6 border border-blue-100">
-            <h1 className="text-3xl font-bold text-gray-800 mb-2">{pharmacyUser.name}</h1>
-            <p className="text-gray-600 flex items-center gap-2">
-              <Package className="w-4 h-4" />
-              Managed by {pharmacyUser.owner}
-            </p>
+            <div className="flex justify-between items-center">
+              <div>
+                <h1 className="text-3xl font-bold text-gray-800 mb-2">{pharmacyUser.name}</h1>
+                <p className="text-gray-600 flex items-center gap-2">
+                  <Package className="w-4 h-4" />
+                  Managed by {pharmacyUser.owner}
+                  {userRole && (
+                    <span className="ml-2 px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full">
+                      Role: {userRole}
+                    </span>
+                  )}
+                </p>
+                {userId && (
+                  <p className="text-gray-500 text-sm mt-1">
+                    User ID: <span className="font-mono">{userId}</span>
+                  </p>
+                )}
+              </div>
+              <button
+                onClick={loadMedicines}
+                disabled={isLoading}
+                className="flex items-center gap-2 bg-blue-100 text-blue-700 px-4 py-2 rounded-lg hover:bg-blue-200 transition-colors disabled:opacity-50"
+              >
+                <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
+                Refresh
+              </button>
+            </div>
           </div>
         </div>
 
@@ -311,10 +493,27 @@ const PharmacyProfile = () => {
                 <button
                   type="button"
                   onClick={handleSubmit}
-                  className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-semibold py-3 px-6 rounded-xl hover:from-blue-700 hover:to-indigo-700 transition-all duration-200 transform hover:scale-105 shadow-lg"
+                  disabled={isLoading}
+                  className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-semibold py-3 px-6 rounded-xl hover:from-blue-700 hover:to-indigo-700 transition-all duration-200 transform hover:scale-105 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed flex justify-center items-center gap-2"
                 >
-                  Add Medicine
+                  {isLoading ? (
+                    <>
+                      <RefreshCw className="w-4 h-4 animate-spin" />
+                      Adding...
+                    </>
+                  ) : (
+                    'Add Medicine'
+                  )}
                 </button>
+
+                {userRole && userRole !== 'admin' && userRole !== 'pharmacy' && (
+                  <div className="mt-4 p-3 bg-orange-50 border border-orange-200 rounded-lg text-sm text-orange-800">
+                    <p className="flex items-center gap-2">
+                      <Lock className="w-4 h-4" />
+                      Your role ({userRole}) may not have permission to add medicines.
+                    </p>
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -329,7 +528,12 @@ const PharmacyProfile = () => {
               <p className="text-gray-600 mt-1">Manage your pharmacy's medicine stock</p>
             </div>
 
-            {medicines.length === 0 ? (
+            {isLoading ? (
+              <div className="bg-white rounded-2xl shadow-lg p-12 text-center border border-blue-100">
+                <RefreshCw className="w-16 h-16 text-blue-500 mx-auto mb-4 animate-spin" />
+                <h3 className="text-xl font-semibold text-gray-500 mb-2">Loading medicines...</h3>
+              </div>
+            ) : medicines.length === 0 ? (
               <div className="bg-white rounded-2xl shadow-lg p-12 text-center border border-blue-100">
                 <Package className="w-16 h-16 text-gray-300 mx-auto mb-4" />
                 <h3 className="text-xl font-semibold text-gray-500 mb-2">No medicines yet</h3>
@@ -339,7 +543,7 @@ const PharmacyProfile = () => {
               <div className="grid md:grid-cols-2 gap-6">
                 {medicines.map((medicine) => (
                   <div
-                    key={medicine.id}
+                    key={medicine._id || medicine.id}
                     className="bg-white rounded-2xl shadow-lg border border-blue-100 overflow-hidden hover:shadow-xl transition-all duration-200 transform hover:scale-[1.02]"
                   >
                     <div className="p-6">
@@ -356,7 +560,7 @@ const PharmacyProfile = () => {
                             <Edit2 className="w-4 h-4" />
                           </button>
                           <button
-                            onClick={() => handleDelete(medicine.id)}
+                            onClick={() => handleDelete(medicine._id || medicine.id)}
                             className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors duration-200"
                             title="Delete medicine"
                           >
@@ -391,99 +595,6 @@ const PharmacyProfile = () => {
           </div>
         </div>
       </div>
-
-      {/* Edit Modal */}
-      {isEditModalOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md border border-blue-100">
-            <div className="flex justify-between items-center p-6 border-b border-gray-200">
-              <h3 className="text-xl font-bold text-gray-800">Edit Medicine</h3>
-              <button
-                onClick={closeModal}
-                className="p-2 hover:bg-gray-100 rounded-lg transition-colors duration-200"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <div className="p-6 space-y-4">
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  Medicine Name
-                </label>
-                <input
-                  type="text"
-                  name="name"
-                  value={editFormData.name}
-                  onChange={handleEditInputChange}
-                  className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  Description
-                </label>
-                <textarea
-                  name="description"
-                  value={editFormData.description}
-                  onChange={handleEditInputChange}
-                  rows="3"
-                  className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 resize-none"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">
-                    Price ($)
-                  </label>
-                  <input
-                    type="number"
-                    name="price"
-                    value={editFormData.price}
-                    onChange={handleEditInputChange}
-                    step="0.01"
-                    min="0"
-                    className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">
-                    Stock
-                  </label>
-                  <input
-                    type="number"
-                    name="stock"
-                    value={editFormData.stock}
-                    onChange={handleEditInputChange}
-                    min="0"
-                    className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
-                  />
-                </div>
-              </div>
-
-              <div className="flex gap-3 pt-4">
-                <button
-                  type="button"
-                  onClick={closeModal}
-                  className="flex-1 px-6 py-3 border border-gray-300 text-gray-700 font-semibold rounded-xl hover:bg-gray-50 transition-colors duration-200"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  onClick={handleEditSubmit}
-                  className="flex-1 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-semibold py-3 px-6 rounded-xl hover:from-blue-700 hover:to-indigo-700 transition-all duration-200"
-                >
-                  Save Changes
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };
