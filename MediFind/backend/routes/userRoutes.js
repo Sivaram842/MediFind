@@ -22,6 +22,10 @@ userRouter.get("/me", protect, (req, res) => {
 });
 
 
+// ✅ Profile route (matches frontend expectation)
+userRouter.get("/profile", protect, (req, res) => {
+    res.json(req.user); // Comes from authMiddleware
+});
 
 // Protected routes (require token)
 userRouter.get("/", protect, getAllUsers);      // Get all users
