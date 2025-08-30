@@ -1,11 +1,14 @@
+
 import React, { useState, useEffect } from 'react';
 import { Plus, Edit2, Trash2, X, Package, DollarSign, Hash, User, RefreshCw, AlertCircle, Key, Shield, Lock, Store, ArrowRight } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
 const PharmacyProfile = () => {
+  const navigate = useNavigate();
   const [medicines, setMedicines] = useState([]);
   const [pharmacies, setPharmacies] = useState([]);
   const [selectedPharmacy, setSelectedPharmacy] = useState(null);
-  const [currentView, setCurrentView] = useState('pharmacies'); // 'pharmacies' or 'medicines'
+  const [currentView, setCurrentView] = useState('pharmacies');
 
   const [formData, setFormData] = useState({
     name: "",
@@ -42,6 +45,7 @@ const PharmacyProfile = () => {
     const token = localStorage.getItem('token');
     if (!token) {
       alert('You must be logged in to access this page.');
+      navigate('/login');
       return;
     }
 
@@ -53,6 +57,7 @@ const PharmacyProfile = () => {
       if (isExpired) {
         alert('Your session has expired. Please login again.');
         localStorage.removeItem('token');
+        navigate('/login');
         return;
       }
 
@@ -72,7 +77,7 @@ const PharmacyProfile = () => {
 
     // Load pharmacies initially
     loadPharmacies();
-  }, []);
+  }, [navigate]);
 
   const fetchUserProfile = async (token) => {
     try {
@@ -99,8 +104,9 @@ const PharmacyProfile = () => {
   const loadPharmacies = async () => {
     try {
       setIsLoading(true);
+      setErrorMessage('');
       const token = localStorage.getItem('token');
-      // This would be your pharmacy endpoint
+
       const response = await fetch(
         'https://medifind-7.onrender.com/api/pharmacies',
         {
@@ -112,15 +118,16 @@ const PharmacyProfile = () => {
 
       if (response.ok) {
         const data = await response.json();
-        setPharmacies(data.pharmacies || []);
+        setPharmacies(data.pharmacies || data || []);
+      } else if (response.status === 401 || response.status === 403) {
+        const errorData = await response.json().catch(() => ({}));
+        handleAuthError({ response: { status: response.status, statusText: response.statusText, data: errorData } });
       } else {
-        // For now, we'll use mock data if API fails
-        setPharmacies([]);
+        setErrorMessage('Failed to load pharmacies. Please try again.');
       }
     } catch (error) {
       console.error('Error loading pharmacies:', error);
-      // For now, we'll use empty array if API fails
-      setPharmacies([]);
+      setErrorMessage('Failed to load pharmacies. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -129,6 +136,7 @@ const PharmacyProfile = () => {
   const loadMedicines = async (pharmacyId) => {
     try {
       setIsLoading(true);
+      setErrorMessage('');
       const token = localStorage.getItem('token');
       const response = await fetch(
         `https://medifind-7.onrender.com/api/medicines?pharmacyId=${pharmacyId}`,
@@ -141,7 +149,7 @@ const PharmacyProfile = () => {
 
       if (response.ok) {
         const data = await response.json();
-        setMedicines(data.medicines || []);
+        setMedicines(data.medicines || data || []);
       } else if (response.status === 401 || response.status === 403) {
         const errorData = await response.json().catch(() => ({}));
         handleAuthError({ response: { status: response.status, statusText: response.statusText, data: errorData } });
@@ -184,8 +192,8 @@ const PharmacyProfile = () => {
   };
 
   const handleCreatePharmacy = async () => {
-    if (!pharmacyFormData.name || !pharmacyFormData.address || !pharmacyFormData.phone || !pharmacyFormData.owner) {
-      alert('Please fill in all fields');
+    if (!pharmacyFormData.name || !pharmacyFormData.address || !pharmacyFormData.phone) {
+      alert('Please fill in pharmacy name, address, and phone number');
       return;
     }
 
@@ -193,7 +201,11 @@ const PharmacyProfile = () => {
       name: pharmacyFormData.name,
       address: pharmacyFormData.address,
       phone: pharmacyFormData.phone,
-      owner: pharmacyFormData.owner
+      // Remove 'owner' since backend doesn't expect it
+      // Add other required fields with default values
+      location: pharmacyFormData.address, // Using address as location
+      licenseNumber: "PENDING", // Default value
+      email: "" // Empty email
     };
 
     try {
@@ -203,6 +215,7 @@ const PharmacyProfile = () => {
       const token = localStorage.getItem('token');
       if (!token) {
         alert('You must be logged in to create a pharmacy.');
+        navigate('/login');
         return;
       }
 
@@ -218,31 +231,34 @@ const PharmacyProfile = () => {
         }
       );
 
+      const responseData = await response.json();
+
       if (response.ok) {
-        const data = await response.json();
-        setPharmacies(prev => [...prev, data]);
+        // Add the new pharmacy to the list
+        setPharmacies(prev => [...prev, responseData]);
         alert('Pharmacy created successfully!');
 
+        // Reset form
         setPharmacyFormData({
           name: '',
           address: '',
           phone: '',
-          owner: ''
+          owner: '' // Keep this for form but don't send to backend
         });
       } else {
-        const errorData = await response.json().catch(() => ({}));
-
+        console.log('Error response:', responseData);
         setDebugInfo({
           status: response.status,
           statusText: response.statusText,
-          data: errorData,
-          headers: Object.fromEntries(response.headers.entries())
+          data: responseData,
         });
 
-        if (response.status === 401 || response.status === 403) {
-          setErrorMessage(`Permission Denied: ${errorData.message || 'Your account doesn\'t have permission to create pharmacies.'}`);
-        } else if (errorData.message) {
-          setErrorMessage(errorData.message);
+        if (response.status === 400) {
+          setErrorMessage(`Validation Error: ${responseData.message || 'Please check your input data'}`);
+        } else if (response.status === 401 || response.status === 403) {
+          setErrorMessage(`Permission Denied: ${responseData.message || 'Your account doesn\'t have permission to create pharmacies.'}`);
+        } else if (responseData.message) {
+          setErrorMessage(responseData.message);
         } else {
           setErrorMessage('Failed to create pharmacy. Please try again.');
         }
@@ -254,10 +270,14 @@ const PharmacyProfile = () => {
       setIsLoading(false);
     }
   };
-
   const handleSubmit = async () => {
     if (!formData.name || !formData.description || !formData.price || !formData.stock) {
       alert('Please fill in all fields');
+      return;
+    }
+
+    if (!selectedPharmacy) {
+      alert('Please select a pharmacy first');
       return;
     }
 
@@ -276,6 +296,7 @@ const PharmacyProfile = () => {
       const token = localStorage.getItem('token');
       if (!token) {
         alert('You must be logged in to add a medicine.');
+        navigate('/login');
         return;
       }
 
@@ -291,11 +312,14 @@ const PharmacyProfile = () => {
         }
       );
 
+      const responseData = await response.json();
+
       if (response.ok) {
-        const data = await response.json();
-        setMedicines(prev => [...prev, data]);
+        // Add the new medicine to the list
+        setMedicines(prev => [...prev, responseData]);
         alert('Medicine added successfully!');
 
+        // Reset form
         setFormData({
           name: '',
           description: '',
@@ -303,19 +327,16 @@ const PharmacyProfile = () => {
           stock: ''
         });
       } else {
-        const errorData = await response.json().catch(() => ({}));
-
         setDebugInfo({
           status: response.status,
           statusText: response.statusText,
-          data: errorData,
-          headers: Object.fromEntries(response.headers.entries())
+          data: responseData,
         });
 
         if (response.status === 401 || response.status === 403) {
-          setErrorMessage(`Permission Denied: ${errorData.message || 'Your account doesn\'t have permission to add medicines.'}`);
-        } else if (errorData.message) {
-          setErrorMessage(errorData.message);
+          setErrorMessage(`Permission Denied: ${responseData.message || 'Your account doesn\'t have permission to add medicines.'}`);
+        } else if (responseData.message) {
+          setErrorMessage(responseData.message);
         } else {
           setErrorMessage('Failed to add medicine. Please try again.');
         }
@@ -328,9 +349,85 @@ const PharmacyProfile = () => {
     }
   };
 
-  const handleDelete = (id) => {
-    if (window.confirm('Are you sure you want to delete this medicine?')) {
-      setMedicines(prev => prev.filter(medicine => medicine.id !== id));
+  const handleDeleteMedicine = async (id) => {
+    if (!window.confirm('Are you sure you want to delete this medicine?')) {
+      return;
+    }
+
+    try {
+      setIsLoading(true);
+      setErrorMessage('');
+
+      const token = localStorage.getItem('token');
+      const response = await fetch(
+        `https://medifind-7.onrender.com/api/medicines/${id}`,
+        {
+          method: 'DELETE',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          }
+        }
+      );
+
+      if (response.ok) {
+        // Remove the medicine from the list
+        setMedicines(prev => prev.filter(medicine => (medicine._id || medicine.id) !== id));
+        alert('Medicine deleted successfully!');
+      } else {
+        const responseData = await response.json();
+        setErrorMessage(responseData.message || 'Failed to delete medicine.');
+      }
+    } catch (error) {
+      console.error('Error deleting medicine:', error);
+      setErrorMessage('Failed to delete medicine. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleUpdateMedicine = async () => {
+    if (!editingMedicine) return;
+
+    try {
+      setIsLoading(true);
+      setErrorMessage('');
+
+      const token = localStorage.getItem('token');
+      const response = await fetch(
+        `https://medifind-7.onrender.com/api/medicines/${editingMedicine._id || editingMedicine.id}`,
+        {
+          method: 'PUT',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            ...editFormData,
+            price: parseFloat(editFormData.price),
+            stock: parseInt(editFormData.stock)
+          })
+        }
+      );
+
+      const responseData = await response.json();
+
+      if (response.ok) {
+        // Update the medicine in the list
+        setMedicines(prev => prev.map(medicine =>
+          (medicine._id || medicine.id) === (editingMedicine._id || editingMedicine.id)
+            ? responseData
+            : medicine
+        ));
+        alert('Medicine updated successfully!');
+        setIsEditModalOpen(false);
+      } else {
+        setErrorMessage(responseData.message || 'Failed to update medicine.');
+      }
+    } catch (error) {
+      console.error('Error updating medicine:', error);
+      setErrorMessage('Failed to update medicine. Please try again.');
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -377,6 +474,86 @@ const PharmacyProfile = () => {
     }
   };
 
+  // Add Edit Modal
+  const EditMedicineModal = () => (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div className="bg-white rounded-2xl p-6 w-full max-w-md">
+        <div className="flex justify-between items-center mb-4">
+          <h2 className="text-xl font-bold">Edit Medicine</h2>
+          <button onClick={() => setIsEditModalOpen(false)} className="text-gray-500 hover:text-gray-700">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-2">
+              Medicine Name
+            </label>
+            <input
+              type="text"
+              name="name"
+              value={editFormData.name}
+              onChange={(e) => setEditFormData({ ...editFormData, name: e.target.value })}
+              className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-2">
+              Description
+            </label>
+            <textarea
+              name="description"
+              value={editFormData.description}
+              onChange={(e) => setEditFormData({ ...editFormData, description: e.target.value })}
+              rows="3"
+              className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">
+                Price ($)
+              </label>
+              <input
+                type="number"
+                name="price"
+                value={editFormData.price}
+                onChange={(e) => setEditFormData({ ...editFormData, price: e.target.value })}
+                step="0.01"
+                min="0"
+                className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">
+                Stock
+              </label>
+              <input
+                type="number"
+                name="stock"
+                value={editFormData.stock}
+                onChange={(e) => setEditFormData({ ...editFormData, stock: e.target.value })}
+                min="0"
+                className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+            </div>
+          </div>
+
+          <button
+            onClick={handleUpdateMedicine}
+            disabled={isLoading}
+            className="w-full bg-blue-600 text-white font-semibold py-3 px-6 rounded-xl hover:bg-blue-700 transition-colors disabled:opacity-50"
+          >
+            {isLoading ? 'Updating...' : 'Update Medicine'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-6">
       <div className="max-w-7xl mx-auto">
@@ -614,19 +791,7 @@ const PharmacyProfile = () => {
                       />
                     </div>
 
-                    <div>
-                      <label className="block text-sm font-semibold text-gray-700 mb-2">
-                        Owner Name
-                      </label>
-                      <input
-                        type="text"
-                        name="owner"
-                        value={pharmacyFormData.owner}
-                        onChange={handlePharmacyInputChange}
-                        className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
-                        placeholder="Enter owner name"
-                      />
-                    </div>
+
 
                     <button
                       type="button"

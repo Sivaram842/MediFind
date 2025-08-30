@@ -1,58 +1,77 @@
-import fs from "fs";
-import path from "path";
 import Medicine from "../models/medicine.js";
 import Pharmacy from "../models/pharmacy.js";
 
-// Ensure directory exists before writing
-const ensureDirExists = (dirPath) => {
-    if (!fs.existsSync(dirPath)) {
-        fs.mkdirSync(dirPath, { recursive: true });
-    }
-};
-
-// Add a new medicine (pharmacyId is optional, we use req.user._id)
-export const addMedicine = async (req, res) => {
+// Get medicine by ID
+export const getMedicineById = async (req, res) => {
     try {
-        const {
-            name, brand, price, stock,
-            expiryDate, category, dosage,
-            prescriptionRequired
-        } = req.body;
+        const { id } = req.params;
+        const medicine = await Medicine.findById(id).populate("pharmacy", "name address phone");
 
-        console.log("req.user:", req.user);
+        if (!medicine) {
+            return res.status(404).json({ message: "Medicine not found" });
+        }
 
-        const pharmacy = await Pharmacy.findOne({ user: req.user._id });
-        if (!pharmacy) return res.status(404).json({ message: "Pharmacy not found for this user" });
-
-        const medicine = new Medicine({
-            name,
-            brand,
-            price,
-            stock,
-            expiryDate,
-            category,
-            dosage,
-            prescriptionRequired,
-            pharmacy: pharmacy._id,
-        });
-
-        const savedMedicine = await medicine.save();
-
-        ensureDirExists("logs");
-        fs.appendFileSync("logs/medicine.log", `Added: ${savedMedicine.name} at ${new Date().toISOString()}\n`);
-
-        res.status(201).json(savedMedicine);
+        res.status(200).json(medicine);
     } catch (error) {
-        console.error("Error adding medicine:", error);
+        console.error("Error getting medicine:", error);
         res.status(500).json({ message: "Internal server error" });
     }
 };
 
-// Get all medicines
+// Get medicines by pharmacy ID
+export const getMedicinesByPharmacy = async (req, res) => {
+    try {
+        const { pharmacyId } = req.params;
+
+        // Verify pharmacy exists
+        const pharmacy = await Pharmacy.findById(pharmacyId);
+        if (!pharmacy) {
+            return res.status(404).json({ message: "Pharmacy not found" });
+        }
+
+        const medicines = await Medicine.find({ pharmacy: pharmacyId })
+            .populate("pharmacy", "name address phone");
+
+        res.status(200).json({ medicines, pharmacy: { name: pharmacy.name, address: pharmacy.address } });
+    } catch (error) {
+        console.error("Error fetching pharmacy medicines:", error);
+        res.status(500).json({ message: "Internal server error" });
+    }
+};
+
+// Get all medicines (with optional filters)
 export const getAllMedicines = async (req, res) => {
     try {
-        const medicines = await Medicine.find().populate("pharmacy");
-        res.status(200).json(medicines);
+        const { pharmacyId, category, inStock, minPrice, maxPrice, page = 1, limit = 10 } = req.query;
+
+        let filter = {};
+
+        if (pharmacyId) filter.pharmacy = pharmacyId;
+        if (category) filter.category = new RegExp(category, "i");
+        if (inStock === "true") filter.stock = { $gt: 0 };
+
+        if (minPrice || maxPrice) {
+            filter.price = {};
+            if (minPrice) filter.price.$gte = Number(minPrice);
+            if (maxPrice) filter.price.$lte = Number(maxPrice);
+        }
+
+        const options = {
+            page: parseInt(page),
+            limit: parseInt(limit),
+            populate: "pharmacy",
+            sort: { name: 1 }
+        };
+
+        const medicines = await Medicine.paginate(filter, options);
+
+        res.status(200).json({
+            medicines: medicines.docs,
+            total: medicines.totalDocs,
+            pages: medicines.totalPages,
+            page: medicines.page,
+            limit: medicines.limit
+        });
     } catch (error) {
         console.error("Error fetching medicines:", error);
         res.status(500).json({ message: "Internal server error" });
@@ -69,20 +88,21 @@ export const searchMedicines = async (req, res) => {
             inStock,
             minPrice,
             maxPrice,
-            category
+            category,
+            page = 1,
+            limit = 10
         } = req.query;
 
-        // Step 1: Filter pharmacies based on location or name
+        // Filter pharmacies based on location or name
         let pharmacyFilter = {};
-        if (location) pharmacyFilter.location = new RegExp(location, "i");
+        if (location) pharmacyFilter.address = new RegExp(location, "i");
         if (pharmacyName) pharmacyFilter.name = new RegExp(pharmacyName, "i");
 
         const pharmacies = await Pharmacy.find(pharmacyFilter).select("_id");
         const pharmacyIds = pharmacies.map(p => p._id);
 
-        // Step 2: Build medicine filter
+        // Build medicine filter
         let medicineFilter = {};
-
         if (name) medicineFilter.name = new RegExp(name, "i");
         if (category) medicineFilter.category = new RegExp(category, "i");
         if (inStock === "true") medicineFilter.stock = { $gt: 0 };
@@ -97,34 +117,103 @@ export const searchMedicines = async (req, res) => {
             medicineFilter.pharmacy = { $in: pharmacyIds };
         }
 
-        const medicines = await Medicine.find(medicineFilter)
-            .populate("pharmacy", "name location address phone");
+        const options = {
+            page: parseInt(page),
+            limit: parseInt(limit),
+            populate: {
+                path: "pharmacy",
+                select: "name address phone location"
+            },
+            sort: { name: 1 }
+        };
 
-        res.status(200).json(medicines);
+        const medicines = await Medicine.paginate(medicineFilter, options);
+
+        res.status(200).json({
+            medicines: medicines.docs,
+            total: medicines.totalDocs,
+            pages: medicines.totalPages,
+            page: medicines.page,
+            limit: medicines.limit
+        });
     } catch (error) {
         console.error("Error searching medicines:", error);
         res.status(500).json({ message: "Internal server error" });
     }
 };
 
+// Add a new medicine
+export const addMedicine = async (req, res) => {
+    try {
+        const { name, description, price, stock, category, pharmacyId } = req.body;
 
-// Update medicine (only if owned by current pharmacy)
+        if (!name || !price || !stock) {
+            return res.status(400).json({ message: "Name, price, and stock are required" });
+        }
+
+        // Find pharmacy - use provided ID or user's default pharmacy
+        let pharmacy;
+        if (pharmacyId) {
+            pharmacy = await Pharmacy.findById(pharmacyId);
+        } else {
+            pharmacy = await Pharmacy.findOne({ user: req.user._id });
+        }
+
+        if (!pharmacy) {
+            return res.status(404).json({ message: "Pharmacy not found" });
+        }
+
+        // Check if user owns the pharmacy
+        if (pharmacy.user.toString() !== req.user._id.toString()) {
+            return res.status(403).json({ message: "You can only add medicines to your own pharmacy" });
+        }
+
+        const medicine = new Medicine({
+            name,
+            description,
+            price: parseFloat(price),
+            stock: parseInt(stock),
+            category,
+            pharmacy: pharmacy._id,
+        });
+
+        const savedMedicine = await medicine.save();
+        await savedMedicine.populate('pharmacy', 'name address');
+
+        res.status(201).json(savedMedicine);
+    } catch (error) {
+        console.error("Error adding medicine:", error);
+        res.status(500).json({ message: "Internal server error" });
+    }
+};
+
+// Update medicine
 export const updateMedicine = async (req, res) => {
     try {
         const { id } = req.params;
 
         const medicine = await Medicine.findById(id);
-        if (!medicine) return res.status(404).json({ message: "Medicine not found" });
-
-        // 🔑 Find pharmacy linked to this user
-        const pharmacy = await Pharmacy.findOne({ user: req.user._id });
-        if (!pharmacy) return res.status(403).json({ message: "Pharmacy not found for this user" });
-
-        if (medicine.pharmacy.toString() !== pharmacy._id.toString()) {
-            return res.status(403).json({ message: "You are not authorized to update this medicine" });
+        if (!medicine) {
+            return res.status(404).json({ message: "Medicine not found" });
         }
 
-        const updated = await Medicine.findByIdAndUpdate(id, req.body, { new: true });
+        // Get user's pharmacy
+        const userPharmacy = await Pharmacy.findOne({ user: req.user._id });
+        if (!userPharmacy) {
+            return res.status(404).json({ message: "Your pharmacy not found" });
+        }
+
+        // Check if medicine belongs to user's pharmacy
+        if (medicine.pharmacy.toString() !== userPharmacy._id.toString()) {
+            return res.status(403).json({ message: "You can only update medicines from your own pharmacy" });
+        }
+
+        const updated = await Medicine.findByIdAndUpdate(
+            id,
+            req.body,
+            { new: true, runValidators: true }
+        ).populate('pharmacy', 'name address');
+
         res.status(200).json(updated);
     } catch (error) {
         console.error("Error updating medicine:", error);
@@ -132,36 +221,29 @@ export const updateMedicine = async (req, res) => {
     }
 };
 
-// Delete medicine (only if owned by current pharmacy)
+// Delete medicine
 export const deleteMedicine = async (req, res) => {
     try {
         const { id } = req.params;
 
         const medicine = await Medicine.findById(id);
-        if (!medicine) return res.status(404).json({ message: "Medicine not found" });
-
-        // 🔑 Get pharmacy linked to user
-        const pharmacy = await Pharmacy.findOne({ user: req.user._id });
-        if (!pharmacy) return res.status(403).json({ message: "Pharmacy not found for this user" });
-
-        if (medicine.pharmacy.toString() !== pharmacy.user.toString()) {
-            return res.status(403).json({ message: "You are not authorized to delete this medicine" });
+        if (!medicine) {
+            return res.status(404).json({ message: "Medicine not found" });
         }
 
-        const deleted = await Medicine.findByIdAndDelete(id);
+        // Get user's pharmacy
+        const userPharmacy = await Pharmacy.findOne({ user: req.user._id });
+        if (!userPharmacy) {
+            return res.status(404).json({ message: "Your pharmacy not found" });
+        }
 
-        ensureDirExists("backups");
-        ensureDirExists("logs");
+        // Check if medicine belongs to user's pharmacy
+        if (medicine.pharmacy.toString() !== userPharmacy._id.toString()) {
+            return res.status(403).json({ message: "You can only delete medicines from your own pharmacy" });
+        }
 
-        const backupPath = path.join("backups", `deleted-${deleted._id}.json`);
-        fs.writeFileSync(backupPath, JSON.stringify(deleted, null, 2));
-
-        fs.appendFileSync(
-            "logs/medicine.log",
-            `Deleted: ${deleted.name} by pharmacy ${req.user._id} at ${new Date().toISOString()}\n`
-        );
-
-        res.status(200).json({ message: "Medicine deleted and backed up successfully" });
+        await Medicine.findByIdAndDelete(id);
+        res.status(200).json({ message: "Medicine deleted successfully" });
     } catch (error) {
         console.error("Error deleting medicine:", error);
         res.status(500).json({ message: "Internal server error" });

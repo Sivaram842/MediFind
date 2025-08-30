@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import mongoosePaginate from 'mongoose-paginate-v2';
 
 
 const medicineSchema = new mongoose.Schema({
@@ -19,6 +20,7 @@ const medicineSchema = new mongoose.Schema({
 });
 
 
+medicineSchema.plugin(mongoosePaginate);
 
 
 // Safe model creation

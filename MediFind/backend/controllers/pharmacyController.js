@@ -4,10 +4,10 @@ import Pharmacy from "../models/pharmacy.js";
 // @route   POST /api/pharmacies
 export const addPharmacy = async (req, res) => {
     try {
-        const { name, location, licenseNumber, address, phone, email } = req.body;
+        const { name, address, phone, owner } = req.body; // Changed to match frontend
 
-        // Validate
-        if (!name || !location || !licenseNumber || !address || !phone) {
+        // Validate - match frontend requirements
+        if (!name || !address || !phone || !owner) {
             return res.status(400).json({ message: "All required fields must be provided" });
         }
 
@@ -19,12 +19,10 @@ export const addPharmacy = async (req, res) => {
 
         const pharmacy = new Pharmacy({
             name,
-            location,
-            licenseNumber,
             address,
             phone,
-            email,
-            user: req.user._id, // ✅ Link to current user
+            owner, // Match frontend field name
+            user: req.user._id,
         });
 
         const saved = await pharmacy.save();
@@ -40,7 +38,7 @@ export const addPharmacy = async (req, res) => {
 export const getAllPharmacies = async (req, res) => {
     try {
         const pharmacies = await Pharmacy.find().populate("user", "name email");
-        res.status(200).json(pharmacies);
+        res.status(200).json({ pharmacies }); // Return as object to match frontend expectation
     } catch (error) {
         console.error("Error fetching pharmacies:", error);
         res.status(500).json({ message: "Internal server error" });
