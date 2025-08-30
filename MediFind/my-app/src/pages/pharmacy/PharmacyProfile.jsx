@@ -21,7 +21,10 @@ const PharmacyProfile = () => {
     name: "",
     address: "",
     phone: "",
-    owner: ""
+    owner: "", // This is already here
+    location: "", // Add this
+    licenseNumber: "", // Add this
+    email: "" // Add this
   });
 
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -192,8 +195,10 @@ const PharmacyProfile = () => {
   };
 
   const handleCreatePharmacy = async () => {
-    if (!pharmacyFormData.name || !pharmacyFormData.address || !pharmacyFormData.phone) {
-      alert('Please fill in pharmacy name, address, and phone number');
+    if (!pharmacyFormData.name || !pharmacyFormData.address ||
+      !pharmacyFormData.phone || !pharmacyFormData.owner ||
+      !pharmacyFormData.location || !pharmacyFormData.licenseNumber) {
+      alert('Please fill in all required fields: Name, Address, Phone, Owner, Location, and License Number');
       return;
     }
 
@@ -201,11 +206,10 @@ const PharmacyProfile = () => {
       name: pharmacyFormData.name,
       address: pharmacyFormData.address,
       phone: pharmacyFormData.phone,
-      // Remove 'owner' since backend doesn't expect it
-      // Add other required fields with default values
-      location: pharmacyFormData.address, // Using address as location
-      licenseNumber: "PENDING", // Default value
-      email: "" // Empty email
+      owner: pharmacyFormData.owner,
+      location: pharmacyFormData.location, // Add this
+      licenseNumber: pharmacyFormData.licenseNumber, // Add this
+      email: pharmacyFormData.email || "" // Add this (optional)
     };
 
     try {
@@ -218,6 +222,9 @@ const PharmacyProfile = () => {
         navigate('/login');
         return;
       }
+
+      // Add debug log to see what you're sending
+      console.log('Sending pharmacy data:', newPharmacy);
 
       const response = await fetch(
         'https://medifind-7.onrender.com/api/pharmacies',
@@ -239,11 +246,15 @@ const PharmacyProfile = () => {
         alert('Pharmacy created successfully!');
 
         // Reset form
+        // Reset form
         setPharmacyFormData({
           name: '',
           address: '',
           phone: '',
-          owner: '' // Keep this for form but don't send to backend
+          owner: '',
+          location: '', // Add this
+          licenseNumber: '', // Add this
+          email: '' // Add this
         });
       } else {
         console.log('Error response:', responseData);
@@ -269,8 +280,7 @@ const PharmacyProfile = () => {
     } finally {
       setIsLoading(false);
     }
-  };
-  const handleSubmit = async () => {
+  }; const handleSubmit = async () => {
     if (!formData.name || !formData.description || !formData.price || !formData.stock) {
       alert('Please fill in all fields');
       return;
@@ -774,6 +784,63 @@ const PharmacyProfile = () => {
                         rows="3"
                         className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 resize-none"
                         placeholder="Enter pharmacy address"
+                      />
+                    </div>
+                    {/* Add these new fields to your form */}
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 mb-2">
+                        Location
+                      </label>
+                      <input
+                        type="text"
+                        name="location"
+                        value={pharmacyFormData.location}
+                        onChange={handlePharmacyInputChange}
+                        className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
+                        placeholder="Enter location (city, area)"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 mb-2">
+                        Owner Name
+                      </label>
+                      <input
+                        type="text"
+                        name="owner"
+                        value={pharmacyFormData.owner}
+                        onChange={handlePharmacyInputChange}
+                        className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
+                        placeholder="Enter owner name"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 mb-2">
+                        License Number
+                      </label>
+                      <input
+                        type="text"
+                        name="licenseNumber"
+                        value={pharmacyFormData.licenseNumber}
+                        onChange={handlePharmacyInputChange}
+                        className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
+                        placeholder="Enter license number"
+                        required
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 mb-2">
+                        Email (Optional)
+                      </label>
+                      <input
+                        type="email"
+                        name="email"
+                        value={pharmacyFormData.email}
+                        onChange={handlePharmacyInputChange}
+                        className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
+                        placeholder="Enter email address"
                       />
                     </div>
 
