@@ -14,7 +14,7 @@ const MyMedicines = () => {
   useEffect(() => {
     const fetchMedicines = async () => {
       try {
-        const res = await axios.get('http://localhost:4000/api/medicines');
+        const res = await axios.get('https://medifind-7.onrender.com/api/medicines');
         console.log('API Response (medicines):', res.data);
         setMedicines(res.data.medicines); // ✅ extract array
       } catch (err) {

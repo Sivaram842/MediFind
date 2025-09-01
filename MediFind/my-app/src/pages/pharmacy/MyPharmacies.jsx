@@ -13,7 +13,7 @@ const MyPharmacies = () => {
   useEffect(() => {
     const fetchPharmacies = async () => {
       try {
-        const res = await axios.get("http://localhost:4000/api/pharmacies");
+        const res = await axios.get("https://medifind-7.onrender.com/api/pharmacies");
 
         setPharmacies(res.data.pharmacies);  // ✅ get the array inside
       } catch (err) {
