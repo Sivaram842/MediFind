@@ -1,80 +1,30 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Search, Pill, X, Package, Clock, AlertCircle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import axios from 'axios';
 
 const MyMedicines = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedMedicine, setSelectedMedicine] = useState(null);
+  const [medicines, setMedicines] = useState([]); // ✅ now fetched from API
+  const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
-  // Dummy data for medicines
-  const medicines = [
-    {
-      id: 1,
-      name: 'Acetaminophen',
-      description: 'Pain reliever and fever reducer commonly used for headaches, muscle aches, and cold symptoms.',
-      stock: 24,
-      usage: 'Take 1-2 tablets every 4-6 hours as needed. Do not exceed 8 tablets in 24 hours.',
-      category: 'Pain Relief',
-      expiryDate: '2025-12-15',
-      manufacturer: 'MedCorp',
-      strength: '500mg'
-    },
-    {
-      id: 2,
-      name: 'Ibuprofen',
-      description: 'Anti-inflammatory medication used to reduce inflammation, pain, and fever.',
-      stock: 18,
-      usage: 'Take 1-2 tablets every 6-8 hours with food. Maximum 6 tablets per day.',
-      category: 'Anti-inflammatory',
-      expiryDate: '2025-10-22',
-      manufacturer: 'PharmaTech',
-      strength: '400mg'
-    },
-    {
-      id: 3,
-      name: 'Vitamin D3',
-      description: 'Essential vitamin supplement for bone health and immune system support.',
-      stock: 45,
-      usage: 'Take 1 tablet daily with a meal containing fat for better absorption.',
-      category: 'Supplement',
-      expiryDate: '2026-03-10',
-      manufacturer: 'VitaLife',
-      strength: '2000 IU'
-    },
-    {
-      id: 4,
-      name: 'Amoxicillin',
-      description: 'Antibiotic used to treat bacterial infections including respiratory and urinary tract infections.',
-      stock: 12,
-      usage: 'Take as prescribed by your doctor. Complete the full course even if you feel better.',
-      category: 'Antibiotic',
-      expiryDate: '2025-08-30',
-      manufacturer: 'BioMed',
-      strength: '250mg'
-    },
-    {
-      id: 5,
-      name: 'Omega-3 Fish Oil',
-      description: 'Dietary supplement rich in EPA and DHA for heart and brain health.',
-      stock: 30,
-      usage: 'Take 1-2 capsules daily with meals to reduce fishy aftertaste.',
-      category: 'Supplement',
-      expiryDate: '2026-01-15',
-      manufacturer: 'OceanHealth',
-      strength: '1000mg'
-    },
-    {
-      id: 6,
-      name: 'Loratadine',
-      description: 'Antihistamine medication for treating allergies and hay fever symptoms.',
-      stock: 20,
-      usage: 'Take 1 tablet once daily. Can be taken with or without food.',
-      category: 'Allergy Relief',
-      expiryDate: '2025-11-08',
-      manufacturer: 'AllerCare',
-      strength: '10mg'
-    }
-  ];
+
+  // Fetch medicines from API
+  useEffect(() => {
+    const fetchMedicines = async () => {
+      try {
+        const res = await axios.get('http://localhost:4000/api/medicines');
+        console.log('API Response (medicines):', res.data);
+        setMedicines(res.data.medicines); // ✅ extract array
+      } catch (err) {
+        console.error('Error fetching medicines:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchMedicines();
+  }, []);
 
   // Filter medicines based on search term
   const filteredMedicines = useMemo(() => {
@@ -100,12 +50,20 @@ const MyMedicines = () => {
     return colors[category] || 'bg-gray-100 text-gray-800';
   };
 
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <p className="text-gray-600 text-lg">Loading medicines...</p>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
       <div className="max-w-7xl mx-auto">
         <div
           className="flex items-center cursor-pointer"
-          onClick={() => window.location.href = '/'}
+          onClick={() => navigate('/')}
         >
           <div className="bg-gradient-to-r from-blue-600 to-purple-600 p-2 rounded-lg mr-3">
             <Package className="h-6 w-6 text-white" />
@@ -114,6 +72,7 @@ const MyMedicines = () => {
             MediFind
           </span>
         </div>
+
         {/* Header */}
         <div className="text-center mb-8">
           <h1 className="text-4xl font-bold text-gray-800 mb-2">My Medicines</h1>
@@ -136,9 +95,10 @@ const MyMedicines = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredMedicines.map((medicine) => {
             const stockStatus = getStockStatus(medicine.stock);
+
             return (
               <div
-                key={medicine.id}
+                key={medicine._id || medicine.id}  // ✅ unique key
                 onClick={() => setSelectedMedicine(medicine)}
                 className="bg-white rounded-xl shadow-md hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300 cursor-pointer border border-gray-100 overflow-hidden"
               >
@@ -150,7 +110,11 @@ const MyMedicines = () => {
                       </div>
                       <div>
                         <h3 className="font-semibold text-gray-800 text-lg">{medicine.name}</h3>
-                        <span className={`inline-block px-2 py-1 text-xs font-medium rounded-full ${getCategoryColor(medicine.category)}`}>
+                        <span
+                          className={`inline-block px-2 py-1 text-xs font-medium rounded-full ${getCategoryColor(
+                            medicine.category
+                          )}`}
+                        >
                           {medicine.category}
                         </span>
                       </div>
