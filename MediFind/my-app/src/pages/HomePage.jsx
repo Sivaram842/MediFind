@@ -301,11 +301,13 @@ const HomePage = () => {
 
                     <div className="grid md:grid-cols-3 gap-8">
                         {/* Feature 1 */}
-                        <div className="group bg-white rounded-2xl p-8 shadow-lg border border-gray-100 hover:shadow-2xl hover:border-blue-200 transition-all duration-300 transform hover:-translate-y-2">
+                        <div onClick={() => navigate('/medicines')}
+                            className="group bg-white rounded-2xl p-8 shadow-lg border border-gray-100 hover:shadow-2xl hover:border-blue-200 transition-all duration-300 transform hover:-translate-y-2">
                             <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
                                 <Search className="h-8 w-8 text-white" />
                             </div>
-                            <h3 className="text-2xl font-bold text-gray-900 mb-4">Search Medicines</h3>
+                            <h3
+                                className="text-2xl font-bold text-gray-900 mb-4">Search Medicines</h3>
                             <p className="text-gray-600 leading-relaxed">
                                 Instantly find available medicines near you with our powerful search engine. Get
                                 real-time availability and pricing information.
@@ -313,7 +315,7 @@ const HomePage = () => {
                         </div>
 
                         {/* Feature 2 */}
-                        <div className="group bg-white rounded-2xl p-8 shadow-lg border border-gray-100 hover:shadow-2xl hover:border-purple-200 transition-all duration-300 transform hover:-translate-y-2">
+                        <div onClick={() => navigate('/pharmacies')} className="group bg-white rounded-2xl p-8 shadow-lg border border-gray-100 hover:shadow-2xl hover:border-purple-200 transition-all duration-300 transform hover:-translate-y-2">
                             <div className="w-16 h-16 bg-gradient-to-br from-purple-500 to-purple-600 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
                                 <MapPin className="h-8 w-8 text-white" />
                             </div>
@@ -349,16 +351,13 @@ const HomePage = () => {
                     </p>
                     <div className="flex flex-col sm:flex-row gap-4 justify-center">
                         <button
-                            onClick={() => setCurrentPage('register')}
+                            onClick={() => navigate('/register')}
                             className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-8 py-4 rounded-xl text-lg font-medium hover:from-blue-700 hover:to-purple-700 transform hover:scale-105 transition-all duration-200 shadow-lg"
                         >
-                            Register as Pharmacy
+                            Register to MediFind
                         </button>
                         <button
-                            onClick={() => {
-                                const searchBar = document.querySelector('input[placeholder="Medicine name..."]');
-                                if (searchBar) searchBar.focus();
-                            }}
+                            onClick={() => navigate('/medicines')}
                             className="bg-white text-blue-600 px-8 py-4 rounded-xl text-lg font-medium border-2 border-blue-600 hover:bg-blue-50 transform hover:scale-105 transition-all duration-200"
                         >
                             Search for Medicines

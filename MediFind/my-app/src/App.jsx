@@ -6,8 +6,9 @@ import AuthForm from "./components/AuthForm";
 import HomePage from "./pages/HomePage";
 import PharmacyDashboard from "./pages/pharmacy/PharmacyProfile";
 import AddMedicine from "./pages/pharmacy/AddMedicine";
-import EditMedicine from "./pages/pharmacy/EditMedicine";
 import PharmacyProfile from "./pages/pharmacy/PharmacyProfile";
+import MyMedicines from "./pages/pharmacy/MyMedicines";
+import MyPharmacies from "./pages/pharmacy/MyPharmacies";
 const App = () => {
   const { user, setUser } = useContext(MediFindContext);
 
@@ -19,6 +20,8 @@ const App = () => {
           <Route path="/login" element={<AuthForm type="login" />} />
           <Route path="/register" element={<AuthForm type="register" />} />
           <Route path="/pharmacy/profile" element={<PharmacyProfile />} />
+          <Route path="/pharmacies" element={<MyPharmacies />} />
+          <Route path="/medicines" element={<MyMedicines />} />
           {/* Protect these routes if user is not logged in */}
           <Route
             path="/pharmacy-dashboard"
@@ -38,10 +41,7 @@ const App = () => {
             path="/add-medicine"
             element={user ? <AddMedicine /> : <Navigate to="/login" replace />}
           />
-          <Route
-            path="/edit-medicine"
-            element={user ? <EditMedicine /> : <Navigate to="/login" replace />}
-          />
+
 
           {/* Catch-all route */}
           <Route path="*" element={<Navigate to="/" replace />} />
