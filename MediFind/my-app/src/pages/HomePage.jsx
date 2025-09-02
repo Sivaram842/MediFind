@@ -327,7 +327,8 @@ const HomePage = () => {
                         </div>
 
                         {/* Feature 3 */}
-                        <div className="group bg-white rounded-2xl p-8 shadow-lg border border-gray-100 hover:shadow-2xl hover:border-green-200 transition-all duration-300 transform hover:-translate-y-2">
+                        <div onClick={() => navigate('/pharmacy/management')}
+                            className="group bg-white rounded-2xl p-8 shadow-lg border border-gray-100 hover:shadow-2xl hover:border-green-200 transition-all duration-300 transform hover:-translate-y-2">
                             <div className="w-16 h-16 bg-gradient-to-br from-green-500 to-green-600 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
                                 <Package className="h-8 w-8 text-white" />
                             </div>

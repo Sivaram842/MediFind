@@ -1,1163 +1,452 @@
-
 import React, { useState, useEffect } from 'react';
-import { Plus, Edit2, Trash2, X, Package, DollarSign, Hash, User, RefreshCw, AlertCircle, Key, Shield, Lock, Store, ArrowRight } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { Plus, Store, Package, DollarSign, Hash } from 'lucide-react';
 
 const PharmacyProfile = () => {
-  const navigate = useNavigate();
+  const [loading, setLoading] = useState(true);
+  const [pharmacy, setPharmacy] = useState(null);
   const [medicines, setMedicines] = useState([]);
-  const [pharmacies, setPharmacies] = useState([]);
-  const [selectedPharmacy, setSelectedPharmacy] = useState(null);
-  const [currentView, setCurrentView] = useState('pharmacies');
-
-  const [formData, setFormData] = useState({
-    name: "",
-    description: "",
-    price: "",
-    stock: ""
+  const [showPharmacyForm, setShowPharmacyForm] = useState(false);
+  const [showMedicineForm, setShowMedicineForm] = useState(false);
+  const [pharmacyForm, setPharmacyForm] = useState({
+    name: '',
+    address: '',
+    phone: '',
+    email: '',
+    licenseNumber: ''
   });
-
-  const [pharmacyFormData, setPharmacyFormData] = useState({
-    name: "",
-    address: "",
-    phone: "",
-    owner: "", // This is already here
-    location: "", // Add this
-    licenseNumber: "", // Add this
-    email: "" // Add this
-  });
-
-  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-  const [editingMedicine, setEditingMedicine] = useState(null);
-  const [editFormData, setEditFormData] = useState({
+  const [medicineForm, setMedicineForm] = useState({
     name: '',
     description: '',
     price: '',
     stock: ''
   });
-  const [showLogoutPopup, setShowLogoutPopup] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
-  const [errorMessage, setErrorMessage] = useState('');
-  const [debugInfo, setDebugInfo] = useState(null);
-  const [showDebugPanel, setShowDebugPanel] = useState(false);
-  const [userRole, setUserRole] = useState('');
-  const [userId, setUserId] = useState('');
+  const [submitting, setSubmitting] = useState(false);
 
-  // Check token validity and extract user info
+  // Fetch user's pharmacy on component mount
   useEffect(() => {
-    const token = localStorage.getItem('token');
-    if (!token) {
-      alert('You must be logged in to access this page.');
-      navigate('/login');
-      return;
+    fetchMyPharmacy();
+  }, []);
+
+  // Fetch medicines when pharmacy is available
+  useEffect(() => {
+    if (pharmacy) {
+      fetchMedicines();
     }
+  }, [pharmacy]);
 
-    // Extract user info from token
+  const fetchMyPharmacy = async () => {
     try {
-      const payload = JSON.parse(atob(token.split('.')[1]));
-      const isExpired = payload.exp * 1000 < Date.now();
-
-      if (isExpired) {
-        alert('Your session has expired. Please login again.');
-        localStorage.removeItem('token');
-        navigate('/login');
-        return;
-      }
-
-      // Set user ID from token
-      setUserId(payload.id);
-
-      // Check if token contains role information
-      if (payload.role) {
-        setUserRole(payload.role);
-      } else {
-        // If no role in token, try to fetch user profile
-        fetchUserProfile(token);
-      }
-    } catch (error) {
-      console.error('Error parsing token:', error);
-    }
-
-    // Load pharmacies initially
-    loadPharmacies();
-  }, [navigate]);
-
-  const fetchUserProfile = async (token) => {
-    try {
-      const response = await fetch(
-        'https://medifind-7.onrender.com/api/users/me',
-        {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-          }
-        }
-      );
-
+      const response = await fetch('/api/pharmacies/my-pharmacy');
       if (response.ok) {
         const data = await response.json();
-        if (data.role) {
-          setUserRole(data.role);
-        }
-      }
-    } catch (error) {
-      console.error('Error fetching user profile:', error);
-    }
-  };
-
-  const loadPharmacies = async () => {
-    try {
-      setIsLoading(true);
-      setErrorMessage('');
-      const token = localStorage.getItem('token');
-
-      const response = await fetch(
-        'https://medifind-7.onrender.com/api/pharmacies',
-        {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-          }
-        }
-      );
-
-      if (response.ok) {
-        const data = await response.json();
-        setPharmacies(data.pharmacies || data || []);
-      } else if (response.status === 401 || response.status === 403) {
-        const errorData = await response.json().catch(() => ({}));
-        handleAuthError({ response: { status: response.status, statusText: response.statusText, data: errorData } });
+        setPharmacy(data);
+      } else if (response.status === 404) {
+        // User has no pharmacy
+        setPharmacy(null);
       } else {
-        setErrorMessage('Failed to load pharmacies. Please try again.');
+        console.error('Error fetching pharmacy:', response.statusText);
       }
     } catch (error) {
-      console.error('Error loading pharmacies:', error);
-      setErrorMessage('Failed to load pharmacies. Please try again.');
+      console.error('Error fetching pharmacy:', error);
     } finally {
-      setIsLoading(false);
+      setLoading(false);
     }
   };
 
-  const loadMedicines = async (pharmacyId) => {
+  const fetchMedicines = async () => {
     try {
-      setIsLoading(true);
-      setErrorMessage('');
-      const token = localStorage.getItem('token');
-      const response = await fetch(
-        `https://medifind-7.onrender.com/api/medicines?pharmacyId=${pharmacyId}`,
-        {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-          }
-        }
-      );
+      const response = await fetch(`/api/medicines?pharmacyId=${pharmacy.id}`);
+      if (response.ok) {
+        const data = await response.json();
+        setMedicines(data);
+      }
+    } catch (error) {
+      console.error('Error fetching medicines:', error);
+    }
+  };
+
+  const handlePharmacySubmit = async () => {
+    setSubmitting(true);
+    try {
+      const response = await fetch('/api/pharmacies', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(pharmacyForm),
+      });
 
       if (response.ok) {
         const data = await response.json();
-        setMedicines(data.medicines || data || []);
-      } else if (response.status === 401 || response.status === 403) {
-        const errorData = await response.json().catch(() => ({}));
-        handleAuthError({ response: { status: response.status, statusText: response.statusText, data: errorData } });
-      } else {
-        setErrorMessage('Failed to load medicines. Please try again.');
-      }
-    } catch (error) {
-      console.error('Error loading medicines:', error);
-      setErrorMessage('Failed to load medicines. Please try again.');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleAuthError = (error) => {
-    setDebugInfo({
-      status: error.response?.status,
-      statusText: error.response?.statusText,
-      data: error.response?.data,
-      headers: error.response?.headers
-    });
-
-    setErrorMessage('Authentication error. Please check your token permissions.');
-  };
-
-  const handlePharmacyInputChange = (e) => {
-    const { name, value } = e.target;
-    setPharmacyFormData(prev => ({
-      ...prev,
-      [name]: value
-    }));
-  };
-
-  const handleInputChange = (e) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: value
-    }));
-  };
-
-  const handleCreatePharmacy = async () => {
-    if (!pharmacyFormData.name || !pharmacyFormData.address ||
-      !pharmacyFormData.phone || !pharmacyFormData.owner ||
-      !pharmacyFormData.location || !pharmacyFormData.licenseNumber) {
-      alert('Please fill in all required fields: Name, Address, Phone, Owner, Location, and License Number');
-      return;
-    }
-
-    const newPharmacy = {
-      name: pharmacyFormData.name,
-      address: pharmacyFormData.address,
-      phone: pharmacyFormData.phone,
-      owner: pharmacyFormData.owner,
-      location: pharmacyFormData.location, // Add this
-      licenseNumber: pharmacyFormData.licenseNumber, // Add this
-      email: pharmacyFormData.email || "" // Add this (optional)
-    };
-
-    try {
-      setIsLoading(true);
-      setErrorMessage('');
-
-      const token = localStorage.getItem('token');
-      if (!token) {
-        alert('You must be logged in to create a pharmacy.');
-        navigate('/login');
-        return;
-      }
-
-      // Add debug log to see what you're sending
-      console.log('Sending pharmacy data:', newPharmacy);
-
-      const response = await fetch(
-        'https://medifind-7.onrender.com/api/pharmacies',
-        {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify(newPharmacy)
-        }
-      );
-
-      const responseData = await response.json();
-
-      if (response.ok) {
-        // Add the new pharmacy to the list
-        setPharmacies(prev => [...prev, responseData]);
-        alert('Pharmacy created successfully!');
-
-        // Reset form
-        // Reset form
-        setPharmacyFormData({
+        setPharmacy(data);
+        setShowPharmacyForm(false);
+        setPharmacyForm({
           name: '',
           address: '',
           phone: '',
-          owner: '',
-          location: '', // Add this
-          licenseNumber: '', // Add this
-          email: '' // Add this
+          email: '',
+          licenseNumber: ''
         });
       } else {
-        console.log('Error response:', responseData);
-        setDebugInfo({
-          status: response.status,
-          statusText: response.statusText,
-          data: responseData,
-        });
-
-        if (response.status === 400) {
-          setErrorMessage(`Validation Error: ${responseData.message || 'Please check your input data'}`);
-        } else if (response.status === 401 || response.status === 403) {
-          setErrorMessage(`Permission Denied: ${responseData.message || 'Your account doesn\'t have permission to create pharmacies.'}`);
-        } else if (responseData.message) {
-          setErrorMessage(responseData.message);
-        } else {
-          setErrorMessage('Failed to create pharmacy. Please try again.');
-        }
+        alert('Failed to create pharmacy. Please try again.');
       }
     } catch (error) {
       console.error('Error creating pharmacy:', error);
-      setErrorMessage('Failed to create pharmacy. Please try again.');
+      alert('Failed to create pharmacy. Please try again.');
     } finally {
-      setIsLoading(false);
+      setSubmitting(false);
     }
-  }; const handleSubmit = async () => {
-    if (!formData.name || !formData.description || !formData.price || !formData.stock) {
-      alert('Please fill in all fields');
-      return;
-    }
+  };
 
-    if (!selectedPharmacy) {
-      alert('Please select a pharmacy first');
-      return;
-    }
-
-    const newMedicine = {
-      name: formData.name,
-      description: formData.description,
-      price: parseFloat(formData.price),
-      stock: parseInt(formData.stock),
-      pharmacyId: selectedPharmacy._id || selectedPharmacy.id // Changed to pharmacyId to match backend
-    };
-
+  const handleMedicineSubmit = async () => {
+    setSubmitting(true);
     try {
-      setIsLoading(true);
-      setErrorMessage('');
+      const medicineData = {
+        ...medicineForm,
+        pharmacyId: pharmacy.id,
+        price: parseFloat(medicineForm.price),
+        stock: parseInt(medicineForm.stock)
+      };
 
-      const token = localStorage.getItem('token');
-      if (!token) {
-        alert('You must be logged in to add a medicine.');
-        navigate('/login');
-        return;
-      }
-
-      const response = await fetch(
-        'https://medifind-7.onrender.com/api/medicines',
-        {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify(newMedicine)
-        }
-      );
-
-      const responseData = await response.json();
+      const response = await fetch('/api/medicines', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(medicineData),
+      });
 
       if (response.ok) {
-        // Add the new medicine to the list
-        setMedicines(prev => [...prev, responseData]);
-        alert('Medicine added successfully!');
-
-        // Reset form
-        setFormData({
+        const data = await response.json();
+        setMedicines([...medicines, data]);
+        setShowMedicineForm(false);
+        setMedicineForm({
           name: '',
           description: '',
           price: '',
           stock: ''
         });
       } else {
-        setDebugInfo({
-          status: response.status,
-          statusText: response.statusText,
-          data: responseData,
-        });
-
-        if (response.status === 401 || response.status === 403) {
-          setErrorMessage(`Permission Denied: ${responseData.message || 'Your account doesn\'t have permission to add medicines.'}`);
-        } else if (responseData.message) {
-          setErrorMessage(responseData.message);
-        } else {
-          setErrorMessage('Failed to add medicine. Please try again.');
-        }
+        alert('Failed to add medicine. Please try again.');
       }
     } catch (error) {
       console.error('Error adding medicine:', error);
-      setErrorMessage('Failed to add medicine. Please try again.');
+      alert('Failed to add medicine. Please try again.');
     } finally {
-      setIsLoading(false);
+      setSubmitting(false);
     }
   };
 
-  const handleDeleteMedicine = async (id) => {
-    if (!window.confirm('Are you sure you want to delete this medicine?')) {
-      return;
-    }
-
-    try {
-      setIsLoading(true);
-      setErrorMessage('');
-
-      const token = localStorage.getItem('token');
-      const response = await fetch(
-        `https://medifind-7.onrender.com/api/medicines/${id}`,
-        {
-          method: 'DELETE',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-          }
-        }
-      );
-
-      if (response.ok) {
-        // Remove the medicine from the list
-        setMedicines(prev => prev.filter(medicine => (medicine._id || medicine.id) !== id));
-        alert('Medicine deleted successfully!');
-      } else {
-        const responseData = await response.json();
-        setErrorMessage(responseData.message || 'Failed to delete medicine.');
-      }
-    } catch (error) {
-      console.error('Error deleting medicine:', error);
-      setErrorMessage('Failed to delete medicine. Please try again.');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleUpdateMedicine = async () => {
-    if (!editingMedicine) return;
-
-    try {
-      setIsLoading(true);
-      setErrorMessage('');
-
-      const token = localStorage.getItem('token');
-      const response = await fetch(
-        `https://medifind-7.onrender.com/api/medicines/${editingMedicine._id || editingMedicine.id}`,
-        {
-          method: 'PUT',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            ...editFormData,
-            price: parseFloat(editFormData.price),
-            stock: parseInt(editFormData.stock)
-          })
-        }
-      );
-
-      const responseData = await response.json();
-
-      if (response.ok) {
-        // Update the medicine in the list
-        setMedicines(prev => prev.map(medicine =>
-          (medicine._id || medicine.id) === (editingMedicine._id || editingMedicine.id)
-            ? responseData
-            : medicine
-        ));
-        alert('Medicine updated successfully!');
-        setIsEditModalOpen(false);
-      } else {
-        setErrorMessage(responseData.message || 'Failed to update medicine.');
-      }
-    } catch (error) {
-      console.error('Error updating medicine:', error);
-      setErrorMessage('Failed to update medicine. Please try again.');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleEdit = (medicine) => {
-    setEditingMedicine(medicine);
-    setEditFormData({
-      name: medicine.name,
-      description: medicine.description,
-      price: medicine.price.toString(),
-      stock: medicine.stock.toString()
+  const handlePharmacyFormChange = (e) => {
+    setPharmacyForm({
+      ...pharmacyForm,
+      [e.target.name]: e.target.value
     });
-    setIsEditModalOpen(true);
   };
 
-  const handlePharmacySelect = (pharmacy) => {
-    setSelectedPharmacy(pharmacy);
-    setCurrentView('medicines');
-    loadMedicines(pharmacy._id || pharmacy.id);
+  const handleMedicineFormChange = (e) => {
+    setMedicineForm({
+      ...medicineForm,
+      [e.target.name]: e.target.value
+    });
   };
 
-  const handleBackToPharmacies = () => {
-    setSelectedPharmacy(null);
-    setCurrentView('pharmacies');
-    setMedicines([]);
-  };
-
-  const copyTokenToClipboard = () => {
-    const token = localStorage.getItem('token');
-    if (token) {
-      navigator.clipboard.writeText(token);
-      alert('Token copied to clipboard');
-    }
-  };
-
-  const viewTokenDetails = () => {
-    const token = localStorage.getItem('token');
-    if (token) {
-      try {
-        const payload = JSON.parse(atob(token.split('.')[1]));
-        alert(`Token Details:\nExp: ${new Date(payload.exp * 1000).toLocaleString()}\nUser ID: ${payload.id}\nRole: ${payload.role || 'Not specified'}`);
-      } catch (error) {
-        alert('Error parsing token: ' + error.message);
-      }
-    }
-  };
-
-  // Add Edit Modal
-  const EditMedicineModal = () => (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-2xl p-6 w-full max-w-md">
-        <div className="flex justify-between items-center mb-4">
-          <h2 className="text-xl font-bold">Edit Medicine</h2>
-          <button onClick={() => setIsEditModalOpen(false)} className="text-gray-500 hover:text-gray-700">
-            <X className="w-5 h-5" />
-          </button>
-        </div>
-
-        <div className="space-y-4">
-          <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-2">
-              Medicine Name
-            </label>
-            <input
-              type="text"
-              name="name"
-              value={editFormData.name}
-              onChange={(e) => setEditFormData({ ...editFormData, name: e.target.value })}
-              className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-2">
-              Description
-            </label>
-            <textarea
-              name="description"
-              value={editFormData.description}
-              onChange={(e) => setEditFormData({ ...editFormData, description: e.target.value })}
-              rows="3"
-              className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
-            />
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">
-                Price ($)
-              </label>
-              <input
-                type="number"
-                name="price"
-                value={editFormData.price}
-                onChange={(e) => setEditFormData({ ...editFormData, price: e.target.value })}
-                step="0.01"
-                min="0"
-                className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">
-                Stock
-              </label>
-              <input
-                type="number"
-                name="stock"
-                value={editFormData.stock}
-                onChange={(e) => setEditFormData({ ...editFormData, stock: e.target.value })}
-                min="0"
-                className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
-            </div>
-          </div>
-
-          <button
-            onClick={handleUpdateMedicine}
-            disabled={isLoading}
-            className="w-full bg-blue-600 text-white font-semibold py-3 px-6 rounded-xl hover:bg-blue-700 transition-colors disabled:opacity-50"
-          >
-            {isLoading ? 'Updating...' : 'Update Medicine'}
-          </button>
+  // Loading state
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading pharmacy information...</p>
         </div>
       </div>
-    </div>
-  );
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-6">
-      <div className="max-w-7xl mx-auto">
-        <div className="flex justify-between items-center mb-6">
-          <div className="flex items-center">
-            <div
-              className="flex items-center cursor-pointer"
-              onClick={() => window.location.href = '/'}
-            >
-              <div className="bg-gradient-to-r from-blue-600 to-purple-600 p-2 rounded-lg mr-3">
-                <Package className="h-6 w-6 text-white" />
-              </div>
-              <span className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-                MediFind
-              </span>
-            </div>
+    );
+  }
 
-            {/* Breadcrumb navigation */}
-            {currentView === 'medicines' && selectedPharmacy && (
-              <div className="ml-6 flex items-center gap-2 text-sm text-gray-600">
-                <button
-                  onClick={handleBackToPharmacies}
-                  className="hover:text-blue-600 transition-colors"
-                >
-                  Pharmacies
-                </button>
-                <ArrowRight className="w-4 h-4" />
-                <span className="text-gray-800 font-medium">{selectedPharmacy.name}</span>
-              </div>
-            )}
+  // No pharmacy state
+  if (!pharmacy) {
+    return (
+      <div className="min-h-screen bg-gray-50 py-8">
+        <div className="max-w-2xl mx-auto px-4">
+          <div className="text-center mb-8">
+            <Store className="h-16 w-16 text-blue-600 mx-auto mb-4" />
+            <h1 className="text-3xl font-bold text-gray-900">Welcome to Your Pharmacy Dashboard</h1>
+            <p className="text-gray-600 mt-2">You don't have a pharmacy registered yet. Let's set one up!</p>
           </div>
 
-          <div className="flex items-center gap-4">
-            <button
-              onClick={() => setShowDebugPanel(!showDebugPanel)}
-              className="flex items-center gap-2 bg-yellow-100 text-yellow-800 px-4 py-2 rounded-lg hover:bg-yellow-200 transition-colors"
-            >
-              <AlertCircle className="w-4 h-4" />
-              Debug
-            </button>
-
-            {localStorage.getItem('token') && (
-              <div className="relative">
-                <button
-                  className="flex items-center space-x-1 text-gray-700 hover:text-blue-600 px-3 py-2"
-                  onClick={() => setShowLogoutPopup(!showLogoutPopup)}
-                >
-                  <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center">
-                    <User className="h-5 w-5 text-blue-600" />
-                  </div>
-                </button>
-
-                {showLogoutPopup && (
-                  <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-50">
-                    <button
-                      onClick={copyTokenToClipboard}
-                      className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-600 flex items-center gap-2"
-                    >
-                      <Key className="w-4 h-4" />
-                      Copy Token
-                    </button>
-                    <button
-                      onClick={viewTokenDetails}
-                      className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-600 flex items-center gap-2"
-                    >
-                      <Shield className="w-4 h-4" />
-                      Token Info
-                    </button>
-                    <button
-                      onClick={() => {
-                        localStorage.removeItem('token');
-                        navigate('/');
-                      }}
-                      className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-600"
-                    >
-                      Logout
-                    </button>
-                  </div>
-                )}
+          {!showPharmacyForm ? (
+            <div className="text-center">
+              <button
+                onClick={() => setShowPharmacyForm(true)}
+                className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-medium inline-flex items-center gap-2 transition-colors"
+              >
+                <Plus className="h-5 w-5" />
+                Create Your Pharmacy
+              </button>
+            </div>
+          ) : (
+            <div className="bg-white rounded-lg shadow-md p-6">
+              <h2 className="text-2xl font-bold text-gray-900 mb-6">Create Your Pharmacy</h2>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Pharmacy Name
+                  </label>
+                  <input
+                    type="text"
+                    name="name"
+                    value={pharmacyForm.name}
+                    onChange={handlePharmacyFormChange}
+                    required
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Enter pharmacy name"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Address
+                  </label>
+                  <textarea
+                    name="address"
+                    value={pharmacyForm.address}
+                    onChange={handlePharmacyFormChange}
+                    required
+                    rows="3"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Enter full address"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Phone Number
+                  </label>
+                  <input
+                    type="tel"
+                    name="phone"
+                    value={pharmacyForm.phone}
+                    onChange={handlePharmacyFormChange}
+                    required
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Enter phone number"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Email
+                  </label>
+                  <input
+                    type="email"
+                    name="email"
+                    value={pharmacyForm.email}
+                    onChange={handlePharmacyFormChange}
+                    required
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Enter email address"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    License Number
+                  </label>
+                  <input
+                    type="text"
+                    name="licenseNumber"
+                    value={pharmacyForm.licenseNumber}
+                    onChange={handlePharmacyFormChange}
+                    required
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Enter pharmacy license number"
+                  />
+                </div>
+                <div className="flex gap-3 pt-4">
+                  <button
+                    type="button"
+                    onClick={handlePharmacySubmit}
+                    disabled={submitting}
+                    className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white py-2 px-4 rounded-md font-medium transition-colors"
+                  >
+                    {submitting ? 'Creating...' : 'Create Pharmacy'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowPharmacyForm(false)}
+                    className="px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                </div>
               </div>
-            )}
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // Has pharmacy state
+  return (
+    <div className="min-h-screen bg-gray-50 py-8">
+      <div className="max-w-6xl mx-auto px-4">
+        {/* Pharmacy Header */}
+        <div className="mb-8">
+          <div className="flex items-center gap-3 mb-2">
+            <Store className="h-8 w-8 text-blue-600" />
+            <h1 className="text-3xl font-bold text-gray-900">{pharmacy.name}</h1>
+          </div>
+          <div className="text-gray-600">
+            <p>{pharmacy.address}</p>
+            <p>{pharmacy.phone} • {pharmacy.email}</p>
+            <p>License: {pharmacy.licenseNumber}</p>
           </div>
         </div>
 
-        {/* Debug Panel */}
-        {showDebugPanel && (
-          <div className="mb-6 bg-yellow-50 border border-yellow-200 rounded-xl p-4">
-            <h3 className="font-bold text-yellow-800 mb-2 flex items-center gap-2">
-              <AlertCircle className="w-5 h-5" />
-              Debug Information
-            </h3>
-
-            <div className="grid grid-cols-2 gap-4 mb-3">
-              <div>
-                <h4 className="text-sm font-semibold text-yellow-700">User ID</h4>
-                <p className="text-sm text-yellow-600 font-mono truncate">
-                  {userId || 'Not available'}
-                </p>
-              </div>
-
-              <div>
-                <h4 className="text-sm font-semibold text-yellow-700">User Role</h4>
-                <p className="text-sm text-yellow-600">
-                  {userRole || 'Unknown'}
-                </p>
-              </div>
-            </div>
-
-            {debugInfo && (
-              <div className="mt-3">
-                <h4 className="text-sm font-semibold text-yellow-700 mb-1">Last Error Details</h4>
-                <div className="bg-white p-3 rounded-lg border border-yellow-200 text-xs font-mono overflow-auto max-h-40">
-                  <pre>{JSON.stringify(debugInfo, null, 2)}</pre>
-                </div>
-              </div>
+        {/* Add Medicine Section */}
+        <div className="bg-white rounded-lg shadow-md p-6 mb-8">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xl font-semibold text-gray-900">Manage Medicines</h2>
+            {!showMedicineForm && (
+              <button
+                onClick={() => setShowMedicineForm(true)}
+                className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md font-medium inline-flex items-center gap-2 transition-colors"
+              >
+                <Plus className="h-4 w-4" />
+                Add Medicine
+              </button>
             )}
-
-            <div className="mt-3 flex gap-2 flex-wrap">
-              <button
-                onClick={() => {
-                  localStorage.removeItem('token');
-                  window.location.href = '/login';
-                }}
-                className="px-3 py-1 bg-yellow-500 text-white text-sm rounded-md hover:bg-yellow-600"
-              >
-                Clear Token & Relogin
-              </button>
-
-              <button
-                onClick={currentView === 'pharmacies' ? loadPharmacies : () => loadMedicines(selectedPharmacy._id || selectedPharmacy.id)}
-                className="px-3 py-1 bg-blue-500 text-white text-sm rounded-md hover:bg-blue-600"
-              >
-                Test GET Request
-              </button>
-            </div>
           </div>
-        )}
 
-        {/* Error message display */}
-        {errorMessage && (
-          <div className="mb-4 p-4 bg-red-100 border border-red-400 text-red-700 rounded-xl">
-            <div className="flex items-center gap-2 mb-2">
-              <Lock className="w-5 h-5" />
-              <span className="font-semibold">Error</span>
-            </div>
-            <p>{errorMessage}</p>
-          </div>
-        )}
-
-        {/* Pharmacy Management View */}
-        {currentView === 'pharmacies' && (
-          <>
-            {/* Header */}
-            <div className="mb-8">
-              <div className="bg-white rounded-2xl shadow-lg p-6 border border-blue-100">
-                <div className="flex justify-between items-center">
-                  <div>
-                    <h1 className="text-3xl font-bold text-gray-800 mb-2">Pharmacy Management</h1>
-                    <p className="text-gray-600 flex items-center gap-2">
-                      <Store className="w-4 h-4" />
-                      Manage your pharmacies and medicines
-                      {userRole && (
-                        <span className="ml-2 px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full">
-                          Role: {userRole}
-                        </span>
-                      )}
-                    </p>
-                    {userId && (
-                      <p className="text-gray-500 text-sm mt-1">
-                        User ID: <span className="font-mono">{userId}</span>
-                      </p>
-                    )}
-                  </div>
-                  <button
-                    onClick={loadPharmacies}
-                    disabled={isLoading}
-                    className="flex items-center gap-2 bg-blue-100 text-blue-700 px-4 py-2 rounded-lg hover:bg-blue-200 transition-colors disabled:opacity-50"
-                  >
-                    <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
-                    Refresh
-                  </button>
+          {showMedicineForm && (
+            <div className="bg-gray-50 p-4 rounded-lg mb-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Medicine Name
+                  </label>
+                  <input
+                    type="text"
+                    name="name"
+                    value={medicineForm.name}
+                    onChange={handleMedicineFormChange}
+                    required
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+                    placeholder="Enter medicine name"
+                  />
                 </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Price ($)
+                  </label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    name="price"
+                    value={medicineForm.price}
+                    onChange={handleMedicineFormChange}
+                    required
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+                    placeholder="0.00"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Stock Quantity
+                  </label>
+                  <input
+                    type="number"
+                    name="stock"
+                    value={medicineForm.stock}
+                    onChange={handleMedicineFormChange}
+                    required
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+                    placeholder="Enter stock quantity"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Description
+                  </label>
+                  <input
+                    type="text"
+                    name="description"
+                    value={medicineForm.description}
+                    onChange={handleMedicineFormChange}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+                    placeholder="Enter description (optional)"
+                  />
+                </div>
+              </div>
+              <div className="flex gap-3 mt-4">
+                <button
+                  type="button"
+                  onClick={handleMedicineSubmit}
+                  disabled={submitting}
+                  className="bg-green-600 hover:bg-green-700 disabled:bg-green-400 text-white py-2 px-4 rounded-md font-medium transition-colors"
+                >
+                  {submitting ? 'Adding...' : 'Add Medicine'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowMedicineForm(false);
+                    setMedicineForm({
+                      name: '',
+                      description: '',
+                      price: '',
+                      stock: ''
+                    });
+                  }}
+                  className="px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 transition-colors"
+                >
+                  Cancel
+                </button>
               </div>
             </div>
+          )}
+        </div>
 
-            <div className="grid lg:grid-cols-3 gap-8">
-              {/* Create Pharmacy Form */}
-              <div className="lg:col-span-1">
-                <div className="bg-white rounded-2xl shadow-lg p-6 border border-blue-100 sticky top-6">
-                  <h2 className="text-2xl font-bold text-gray-800 mb-6 flex items-center gap-2">
-                    <Plus className="w-6 h-6 text-blue-600" />
-                    Create New Pharmacy
-                  </h2>
+        {/* Medicines Grid */}
+        <div className="bg-white rounded-lg shadow-md p-6">
+          <h3 className="text-xl font-semibold text-gray-900 mb-4">Your Medicines</h3>
 
-                  <div className="space-y-4">
-                    <div>
-                      <label className="block text-sm font-semibold text-gray-700 mb-2">
-                        Pharmacy Name
-                      </label>
-                      <input
-                        type="text"
-                        name="name"
-                        value={pharmacyFormData.name}
-                        onChange={handlePharmacyInputChange}
-                        className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
-                        placeholder="Enter pharmacy name"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-semibold text-gray-700 mb-2">
-                        Address
-                      </label>
-                      <textarea
-                        name="address"
-                        value={pharmacyFormData.address}
-                        onChange={handlePharmacyInputChange}
-                        rows="3"
-                        className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 resize-none"
-                        placeholder="Enter pharmacy address"
-                      />
-                    </div>
-                    {/* Add these new fields to your form */}
-                    <div>
-                      <label className="block text-sm font-semibold text-gray-700 mb-2">
-                        Location
-                      </label>
-                      <input
-                        type="text"
-                        name="location"
-                        value={pharmacyFormData.location}
-                        onChange={handlePharmacyInputChange}
-                        className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
-                        placeholder="Enter location (city, area)"
-                        required
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-semibold text-gray-700 mb-2">
-                        Owner Name
-                      </label>
-                      <input
-                        type="text"
-                        name="owner"
-                        value={pharmacyFormData.owner}
-                        onChange={handlePharmacyInputChange}
-                        className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
-                        placeholder="Enter owner name"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-semibold text-gray-700 mb-2">
-                        License Number
-                      </label>
-                      <input
-                        type="text"
-                        name="licenseNumber"
-                        value={pharmacyFormData.licenseNumber}
-                        onChange={handlePharmacyInputChange}
-                        className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
-                        placeholder="Enter license number"
-                        required
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-semibold text-gray-700 mb-2">
-                        Email (Optional)
-                      </label>
-                      <input
-                        type="email"
-                        name="email"
-                        value={pharmacyFormData.email}
-                        onChange={handlePharmacyInputChange}
-                        className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
-                        placeholder="Enter email address"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-semibold text-gray-700 mb-2">
-                        Phone Number
-                      </label>
-                      <input
-                        type="tel"
-                        name="phone"
-                        value={pharmacyFormData.phone}
-                        onChange={handlePharmacyInputChange}
-                        className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
-                        placeholder="Enter phone number"
-                      />
-                    </div>
-
-
-
-                    <button
-                      type="button"
-                      onClick={handleCreatePharmacy}
-                      disabled={isLoading}
-                      className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-semibold py-3 px-6 rounded-xl hover:from-blue-700 hover:to-indigo-700 transition-all duration-200 transform hover:scale-105 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed flex justify-center items-center gap-2"
-                    >
-                      {isLoading ? (
-                        <>
-                          <RefreshCw className="w-4 h-4 animate-spin" />
-                          Creating...
-                        </>
-                      ) : (
-                        'Create Pharmacy'
-                      )}
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              {/* Pharmacies Grid */}
-              <div className="lg:col-span-2">
-                <div className="mb-6">
-                  <h2 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
-                    <Store className="w-6 h-6 text-blue-600" />
-                    Your Pharmacies ({pharmacies.length})
-                  </h2>
-                  <p className="text-gray-600 mt-1">Click on a pharmacy to manage its medicines</p>
-                </div>
-
-                {isLoading ? (
-                  <div className="bg-white rounded-2xl shadow-lg p-12 text-center border border-blue-100">
-                    <RefreshCw className="w-16 h-16 text-blue-500 mx-auto mb-4 animate-spin" />
-                    <h3 className="text-xl font-semibold text-gray-500 mb-2">Loading pharmacies...</h3>
-                  </div>
-                ) : pharmacies.length === 0 ? (
-                  <div className="bg-white rounded-2xl shadow-lg p-12 text-center border border-blue-100">
-                    <Store className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-                    <h3 className="text-xl font-semibold text-gray-500 mb-2">No pharmacies yet</h3>
-                    <p className="text-gray-400">Create your first pharmacy to get started</p>
-                  </div>
-                ) : (
-                  <div className="grid md:grid-cols-2 gap-6">
-                    {pharmacies.map((pharmacy) => (
-                      <div
-                        key={pharmacy._id || pharmacy.id}
-                        onClick={() => handlePharmacySelect(pharmacy)}
-                        className="bg-white rounded-2xl shadow-lg border border-blue-100 overflow-hidden hover:shadow-xl transition-all duration-200 transform hover:scale-[1.02] cursor-pointer"
-                      >
-                        <div className="p-6">
-                          <div className="flex justify-between items-start mb-4">
-                            <h3 className="text-xl font-bold text-gray-800 line-clamp-1">
-                              {pharmacy.name}
-                            </h3>
-                            <ArrowRight className="w-5 h-5 text-gray-400" />
-                          </div>
-
-                          <div className="space-y-2 text-sm text-gray-600">
-                            <p className="flex items-start gap-2">
-                              <Package className="w-4 h-4 mt-0.5 flex-shrink-0" />
-                              <span className="line-clamp-2">{pharmacy.address}</span>
-                            </p>
-                            <p className="flex items-center gap-2">
-                              <Hash className="w-4 h-4 flex-shrink-0" />
-                              <span>{pharmacy.phone}</span>
-                            </p>
-                            <p className="flex items-center gap-2">
-                              <User className="w-4 h-4 flex-shrink-0" />
-                              <span>Owner: {pharmacy.owner}</span>
-                            </p>
-                          </div>
-
-                          <div className="mt-4 px-3 py-2 bg-blue-50 border border-blue-200 rounded-lg">
-                            <p className="text-blue-800 text-sm font-medium flex items-center gap-2">
-                              <Store className="w-4 h-4" />
-                              Click to manage medicines
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
+          {medicines.length === 0 ? (
+            <div className="text-center py-12">
+              <Package className="h-16 w-16 text-gray-400 mx-auto mb-4" />
+              <p className="text-gray-500 text-lg">No medicines added yet</p>
+              <p className="text-gray-400">Add your first medicine to get started</p>
             </div>
-          </>
-        )}
-
-        {/* Medicine Management View */}
-        {currentView === 'medicines' && selectedPharmacy && (
-          <>
-            {/* Header with back button */}
-            <div className="mb-8">
-              <div className="bg-white rounded-2xl shadow-lg p-6 border border-blue-100">
-                <div className="flex justify-between items-center">
-                  <div>
-                    <div className="flex items-center gap-3 mb-2">
-                      <button
-                        onClick={handleBackToPharmacies}
-                        className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-                      >
-                        <ArrowRight className="w-5 h-5 rotate-180" />
-                      </button>
-                      <h1 className="text-3xl font-bold text-gray-800">{selectedPharmacy.name}</h1>
-                    </div>
-                    <p className="text-gray-600 flex items-center gap-2 ml-11">
-                      <Package className="w-4 h-4" />
-                      Medicine Management - Owner: {selectedPharmacy.owner}
-                    </p>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {medicines.map((medicine) => (
+                <div key={medicine.id} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
+                  <div className="flex items-start justify-between mb-3">
+                    <h4 className="font-semibold text-gray-900 text-lg">{medicine.name}</h4>
+                    <Package className="h-5 w-5 text-gray-400" />
                   </div>
-                  <button
-                    onClick={() => loadMedicines(selectedPharmacy._id || selectedPharmacy.id)}
-                    disabled={isLoading}
-                    className="flex items-center gap-2 bg-blue-100 text-blue-700 px-4 py-2 rounded-lg hover:bg-blue-200 transition-colors disabled:opacity-50"
-                  >
-                    <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
-                    Refresh
-                  </button>
+
+                  {medicine.description && (
+                    <p className="text-gray-600 text-sm mb-3">{medicine.description}</p>
+                  )}
+
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <DollarSign className="h-4 w-4 text-green-600" />
+                      <span className="font-medium text-green-600">${medicine.price}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Hash className="h-4 w-4 text-blue-600" />
+                      <span className="text-gray-700">
+                        Stock: {medicine.stock}
+                        {medicine.stock <= 10 && (
+                          <span className="text-red-500 text-xs ml-1">(Low Stock)</span>
+                        )}
+                      </span>
+                    </div>
+                  </div>
                 </div>
-              </div>
+              ))}
             </div>
-
-            <div className="grid lg:grid-cols-3 gap-8">
-              {/* Add Medicine Form */}
-              <div className="lg:col-span-1">
-                <div className="bg-white rounded-2xl shadow-lg p-6 border border-blue-100 sticky top-6">
-                  <h2 className="text-2xl font-bold text-gray-800 mb-6 flex items-center gap-2">
-                    <Plus className="w-6 h-6 text-blue-600" />
-                    Add New Medicine
-                  </h2>
-
-                  <div className="space-y-4">
-                    <div>
-                      <label className="block text-sm font-semibold text-gray-700 mb-2">
-                        Medicine Name
-                      </label>
-                      <input
-                        type="text"
-                        name="name"
-                        value={formData.name}
-                        onChange={handleInputChange}
-                        className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
-                        placeholder="Enter medicine name"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-semibold text-gray-700 mb-2">
-                        Description
-                      </label>
-                      <textarea
-                        name="description"
-                        value={formData.description}
-                        onChange={handleInputChange}
-                        rows="3"
-                        className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 resize-none"
-                        placeholder="Enter description"
-                      />
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-3">
-                      <div>
-                        <label className="block text-sm font-semibold text-gray-700 mb-2">
-                          Price ($)
-                        </label>
-                        <input
-                          type="number"
-                          name="price"
-                          value={formData.price}
-                          onChange={handleInputChange}
-                          step="0.01"
-                          min="0"
-                          className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
-                          placeholder="0.00"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-sm font-semibold text-gray-700 mb-2">
-                          Stock
-                        </label>
-                        <input
-                          type="number"
-                          name="stock"
-                          value={formData.stock}
-                          onChange={handleInputChange}
-                          min="0"
-                          className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
-                          placeholder="0"
-                        />
-                      </div>
-                    </div>
-
-                    <button
-                      type="button"
-                      onClick={handleSubmit}
-                      disabled={isLoading}
-                      className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-semibold py-3 px-6 rounded-xl hover:from-blue-700 hover:to-indigo-700 transition-all duration-200 transform hover:scale-105 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed flex justify-center items-center gap-2"
-                    >
-                      {isLoading ? (
-                        <>
-                          <RefreshCw className="w-4 h-4 animate-spin" />
-                          Adding...
-                        </>
-                      ) : (
-                        'Add Medicine'
-                      )}
-                    </button>
-
-                    {userRole && userRole !== 'admin' && userRole !== 'pharmacy' && (
-                      <div className="mt-4 p-3 bg-orange-50 border border-orange-200 rounded-lg text-sm text-orange-800">
-                        <p className="flex items-center gap-2">
-                          <Lock className="w-4 h-4" />
-                          Your role ({userRole}) may not have permission to add medicines.
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              {/* Medicines Grid */}
-              <div className="lg:col-span-2">
-                <div className="mb-6">
-                  <h2 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
-                    <Package className="w-6 h-6 text-blue-600" />
-                    Medicine Inventory ({medicines.length})
-                  </h2>
-                  <p className="text-gray-600 mt-1">Manage your pharmacy's medicine stock</p>
-                </div>
-
-                {isLoading ? (
-                  <div className="bg-white rounded-2xl shadow-lg p-12 text-center border border-blue-100">
-                    <RefreshCw className="w-16 h-16 text-blue-500 mx-auto mb-4 animate-spin" />
-                    <h3 className="text-xl font-semibold text-gray-500 mb-2">Loading medicines...</h3>
-                  </div>
-                ) : medicines.length === 0 ? (
-                  <div className="bg-white rounded-2xl shadow-lg p-12 text-center border border-blue-100">
-                    <Package className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-                    <h3 className="text-xl font-semibold text-gray-500 mb-2">No medicines yet</h3>
-                    <p className="text-gray-400">Add your first medicine to get started</p>
-                  </div>
-                ) : (
-                  <div className="grid md:grid-cols-2 gap-6">
-                    {medicines.map((medicine) => (
-                      <div
-                        key={medicine._id || medicine.id}
-                        className="bg-white rounded-2xl shadow-lg border border-blue-100 overflow-hidden hover:shadow-xl transition-all duration-200 transform hover:scale-[1.02]"
-                      >
-                        <div className="p-6">
-                          <div className="flex justify-between items-start mb-4">
-                            <h3 className="text-xl font-bold text-gray-800 line-clamp-1">
-                              {medicine.name}
-                            </h3>
-                            <div className="flex gap-2">
-                              <button
-                                onClick={() => handleEdit(medicine)}
-                                className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors duration-200"
-                                title="Edit medicine"
-                              >
-                                <Edit2 className="w-4 h-4" />
-                              </button>
-                              <button
-                                onClick={() => handleDelete(medicine._id || medicine.id)}
-                                className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors duration-200"
-                                title="Delete medicine"
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </button>
-                            </div>
-                          </div>
-
-                          <p className="text-gray-600 mb-4 line-clamp-2">{medicine.description}</p>
-
-                          <div className="grid grid-cols-2 gap-4">
-                            <div className="flex items-center gap-2 text-green-600">
-                              <DollarSign className="w-4 h-4" />
-                              <span className="font-semibold">${medicine.price}</span>
-                            </div>
-                            <div className="flex items-center gap-2 text-blue-600">
-                              <Hash className="w-4 h-4" />
-                              <span className="font-semibold">{medicine.stock} units</span>
-                            </div>
-                          </div>
-
-                          {medicine.stock < 20 && (
-                            <div className="mt-4 px-3 py-1 bg-orange-100 border border-orange-200 rounded-lg">
-                              <p className="text-orange-800 text-sm font-medium">Low stock warning</p>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-          </>
-        )}
+          )}
+        </div>
       </div>
     </div>
   );

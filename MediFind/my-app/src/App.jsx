@@ -6,9 +6,10 @@ import AuthForm from "./components/AuthForm";
 import HomePage from "./pages/HomePage";
 import PharmacyDashboard from "./pages/pharmacy/PharmacyProfile";
 import AddMedicine from "./pages/pharmacy/AddMedicine";
-import PharmacyProfile from "./pages/pharmacy/PharmacyProfile";
 import MyMedicines from "./pages/pharmacy/MyMedicines";
 import MyPharmacies from "./pages/pharmacy/MyPharmacies";
+import PharmacyManagement from "./pages/pharmacy/PharmacyManagement";
+import PharmacyProfile from "./pages/pharmacy/PharmacyProfile";
 const App = () => {
   const { user, setUser } = useContext(MediFindContext);
 
@@ -19,6 +20,7 @@ const App = () => {
           <Route path="/" element={<HomePage />} />
           <Route path="/login" element={<AuthForm type="login" />} />
           <Route path="/register" element={<AuthForm type="register" />} />
+          <Route path="/pharmacy/management" element={<PharmacyManagement />} />
           <Route path="/pharmacy/profile" element={<PharmacyProfile />} />
           <Route path="/pharmacies" element={<MyPharmacies />} />
           <Route path="/medicines" element={<MyMedicines />} />
