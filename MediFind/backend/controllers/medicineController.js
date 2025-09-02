@@ -1,11 +1,12 @@
 import Medicine from "../models/medicine.js";
 import Pharmacy from "../models/pharmacy.js";
 
-// Get medicine by ID
+// ✅ Get medicine by ID (with pharmacy details)
 export const getMedicineById = async (req, res) => {
     try {
         const { id } = req.params;
-        const medicine = await Medicine.findById(id).populate("pharmacy", "name address phone");
+        const medicine = await Medicine.findById(id)
+            .populate("pharmacy", "name address phone location");
 
         if (!medicine) {
             return res.status(404).json({ message: "Medicine not found" });
@@ -18,7 +19,7 @@ export const getMedicineById = async (req, res) => {
     }
 };
 
-// Get medicines by pharmacy ID
+// ✅ Get medicines by pharmacy ID
 export const getMedicinesByPharmacy = async (req, res) => {
     try {
         const { pharmacyId } = req.params;
@@ -30,16 +31,25 @@ export const getMedicinesByPharmacy = async (req, res) => {
         }
 
         const medicines = await Medicine.find({ pharmacy: pharmacyId })
-            .populate("pharmacy", "name address phone");
+            .populate("pharmacy", "name address phone location");
 
-        res.status(200).json({ medicines, pharmacy: { name: pharmacy.name, address: pharmacy.address } });
+        res.status(200).json({
+            medicines,
+            pharmacy: {
+                _id: pharmacy._id,
+                name: pharmacy.name,
+                address: pharmacy.address,
+                phone: pharmacy.phone,
+                location: pharmacy.location
+            }
+        });
     } catch (error) {
         console.error("Error fetching pharmacy medicines:", error);
         res.status(500).json({ message: "Internal server error" });
     }
 };
 
-// Get all medicines (with optional filters)
+// ✅ Get all medicines (with optional filters + populate)
 export const getAllMedicines = async (req, res) => {
     try {
         const { pharmacyId, category, inStock, minPrice, maxPrice, page = 1, limit = 10 } = req.query;
@@ -59,7 +69,10 @@ export const getAllMedicines = async (req, res) => {
         const options = {
             page: parseInt(page),
             limit: parseInt(limit),
-            populate: "pharmacy",
+            populate: {
+                path: "pharmacy",
+                select: "name address phone location"
+            },
             sort: { name: 1 }
         };
 
@@ -78,7 +91,7 @@ export const getAllMedicines = async (req, res) => {
     }
 };
 
-// Advanced search with filters
+// ✅ Advanced search with filters (with pharmacy populate)
 export const searchMedicines = async (req, res) => {
     try {
         const {
@@ -142,7 +155,7 @@ export const searchMedicines = async (req, res) => {
     }
 };
 
-// Add a new medicine
+// ✅ Add a new medicine (auto populate pharmacy)
 export const addMedicine = async (req, res) => {
     try {
         const { name, description, price, stock, category, pharmacyId } = req.body;
@@ -178,7 +191,7 @@ export const addMedicine = async (req, res) => {
         });
 
         const savedMedicine = await medicine.save();
-        await savedMedicine.populate('pharmacy', 'name address');
+        await savedMedicine.populate("pharmacy", "name address phone location");
 
         res.status(201).json(savedMedicine);
     } catch (error) {
@@ -187,7 +200,7 @@ export const addMedicine = async (req, res) => {
     }
 };
 
-// Update medicine
+// ✅ Update medicine (auto populate pharmacy)
 export const updateMedicine = async (req, res) => {
     try {
         const { id } = req.params;
@@ -212,7 +225,7 @@ export const updateMedicine = async (req, res) => {
             id,
             req.body,
             { new: true, runValidators: true }
-        ).populate('pharmacy', 'name address');
+        ).populate("pharmacy", "name address phone location");
 
         res.status(200).json(updated);
     } catch (error) {
@@ -221,7 +234,7 @@ export const updateMedicine = async (req, res) => {
     }
 };
 
-// Delete medicine
+// ✅ Delete medicine
 export const deleteMedicine = async (req, res) => {
     try {
         const { id } = req.params;

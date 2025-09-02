@@ -124,6 +124,26 @@ const MyMedicines = () => {
                   <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-2">
                       <Package className="w-4 h-4 text-gray-500" />
+                      <span className="text-sm text-gray-600"> Pharmacy: {medicine.pharmacy?.name}</span>
+                    </div>
+                    <span className={`text-sm font-medium ${stockStatus.color}`}>
+                      {stockStatus.label}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-2">
+                      <Package className="w-4 h-4 text-gray-500" />
+                      <span className="text-sm text-gray-600"> Price: {medicine.price}</span>
+                    </div>
+                    <span className={`text-sm font-medium ${stockStatus.color}`}>
+                      {stockStatus.label}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-2">
+                      <Package className="w-4 h-4 text-gray-500" />
                       <span className="text-sm text-gray-600">Stock: {medicine.stock}</span>
                     </div>
                     <span className={`text-sm font-medium ${stockStatus.color}`}>

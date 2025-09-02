@@ -296,7 +296,7 @@ const PharmacyProfile = () => {
       description: formData.description,
       price: parseFloat(formData.price),
       stock: parseInt(formData.stock),
-      pharmacyId: selectedPharmacy._id || selectedPharmacy.id
+      pharmacyId: selectedPharmacy._id || selectedPharmacy.id // Changed to pharmacyId to match backend
     };
 
     try {
