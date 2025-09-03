@@ -110,3 +110,25 @@ export const deletePharmacy = async (req, res) => {
         res.status(500).json({ message: "Internal server error" });
     }
 };
+
+// @desc    Get pharmacy for logged-in user
+// @route   GET /api/pharmacies/my-pharmacy
+export const getMyPharmacy = async (req, res) => {
+    try {
+        // Make sure req.user is set by auth middleware
+        if (!req.user || !req.user._id) {
+            return res.status(401).json({ message: "Not authorized" });
+        }
+
+        const pharmacy = await Pharmacy.findOne({ user: req.user._id }).populate("user", "name email");
+
+        if (!pharmacy) {
+            return res.status(404).json({ message: "No pharmacy found for this user" });
+        }
+
+        res.status(200).json(pharmacy);
+    } catch (error) {
+        console.error("Error in getMyPharmacy:", error);
+        res.status(500).json({ message: "Internal server error", error: error.message });
+    }
+};

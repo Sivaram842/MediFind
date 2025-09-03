@@ -1,5 +1,7 @@
-import React, { useState, useEffect } from 'react';
-import { Plus, Store, Package, DollarSign, Hash } from 'lucide-react';
+import React, { useState, useEffect, useContext } from 'react';
+import { Plus, Store, Package, DollarSign, Hash, ArrowLeft } from 'lucide-react';
+import { MediFindContext } from '../../context/MediFindContext';
+import { useNavigate } from 'react-router-dom';
 
 const PharmacyProfile = () => {
   const [loading, setLoading] = useState(true);
@@ -7,20 +9,28 @@ const PharmacyProfile = () => {
   const [medicines, setMedicines] = useState([]);
   const [showPharmacyForm, setShowPharmacyForm] = useState(false);
   const [showMedicineForm, setShowMedicineForm] = useState(false);
+  const { currentPage, setCurrentPage, setLocation } = useContext(MediFindContext);
+
   const [pharmacyForm, setPharmacyForm] = useState({
     name: '',
     address: '',
     phone: '',
     email: '',
-    licenseNumber: ''
+    licenseNumber: '',
+    location: '',
+    owner: ''
   });
+
   const [medicineForm, setMedicineForm] = useState({
     name: '',
     description: '',
     price: '',
-    stock: ''
+    stock: '',
+    category: ''
   });
+
   const [submitting, setSubmitting] = useState(false);
+  const navigate = useNavigate();
 
   // Fetch user's pharmacy on component mount
   useEffect(() => {
@@ -36,12 +46,23 @@ const PharmacyProfile = () => {
 
   const fetchMyPharmacy = async () => {
     try {
-      const response = await fetch('/api/pharmacies/my-pharmacy');
+      const token = localStorage.getItem('token');
+      if (!token) {
+        alert('You must be logged in to view your pharmacy.');
+        navigate('/login');
+        return;
+      }
+
+      const response = await fetch('https://medifind-7.onrender.com/api/pharmacies/my-pharmacy', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        }
+      });
+
       if (response.ok) {
         const data = await response.json();
-        setPharmacy(data);
+        setPharmacy(data.pharmacy || data);
       } else if (response.status === 404) {
-        // User has no pharmacy
         setPharmacy(null);
       } else {
         console.error('Error fetching pharmacy:', response.statusText);
@@ -55,23 +76,38 @@ const PharmacyProfile = () => {
 
   const fetchMedicines = async () => {
     try {
-      const response = await fetch(`/api/medicines?pharmacyId=${pharmacy.id}`);
+      const token = localStorage.getItem('token');
+      const response = await fetch(`https://medifind-7.onrender.com/api/medicines?pharmacyId=${pharmacy._id}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        }
+      });
+
       if (response.ok) {
         const data = await response.json();
-        setMedicines(data);
+        // If backend returns { medicines: [...] }
+        setMedicines(data.medicines || data || []);
       }
     } catch (error) {
-      console.error('Error fetching medicines:', error);
+      console.error("Error fetching medicines:", error);
     }
   };
 
   const handlePharmacySubmit = async () => {
     setSubmitting(true);
     try {
-      const response = await fetch('/api/pharmacies', {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        alert('You must be logged in to create a pharmacy.');
+        navigate('/login');
+        return;
+      }
+
+      const response = await fetch('https://medifind-7.onrender.com/api/pharmacies', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
         },
         body: JSON.stringify(pharmacyForm),
       });
@@ -85,10 +121,13 @@ const PharmacyProfile = () => {
           address: '',
           phone: '',
           email: '',
-          licenseNumber: ''
+          licenseNumber: '',
+          location: '',
+          owner: ''
         });
       } else {
-        alert('Failed to create pharmacy. Please try again.');
+        const errorData = await response.json();
+        alert(errorData.message || 'Failed to create pharmacy. Please try again.');
       }
     } catch (error) {
       console.error('Error creating pharmacy:', error);
@@ -101,17 +140,25 @@ const PharmacyProfile = () => {
   const handleMedicineSubmit = async () => {
     setSubmitting(true);
     try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        alert('You must be logged in to add a medicine.');
+        navigate('/login');
+        return;
+      }
+
       const medicineData = {
         ...medicineForm,
-        pharmacyId: pharmacy.id,
+        pharmacyId: pharmacy._id || pharmacy.id,
         price: parseFloat(medicineForm.price),
         stock: parseInt(medicineForm.stock)
       };
 
-      const response = await fetch('/api/medicines', {
+      const response = await fetch('https://medifind-7.onrender.com/api/medicines', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
         },
         body: JSON.stringify(medicineData),
       });
@@ -124,16 +171,46 @@ const PharmacyProfile = () => {
           name: '',
           description: '',
           price: '',
-          stock: ''
+          stock: '',
+          category: ''
         });
+        alert('Medicine added successfully!');
       } else {
-        alert('Failed to add medicine. Please try again.');
+        const errorData = await response.json();
+        alert(errorData.message || 'Failed to add medicine. Please try again.');
       }
     } catch (error) {
       console.error('Error adding medicine:', error);
       alert('Failed to add medicine. Please try again.');
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const handleDeleteMedicine = async (medicineId) => {
+    if (!window.confirm('Are you sure you want to delete this medicine?')) {
+      return;
+    }
+
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`https://medifind-7.onrender.com/api/medicines/${medicineId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        }
+      });
+
+      if (response.ok) {
+        setMedicines(medicines.filter(medicine => medicine._id !== medicineId));
+        alert('Medicine deleted successfully!');
+      } else {
+        const errorData = await response.json();
+        alert(errorData.message || 'Failed to delete medicine.');
+      }
+    } catch (error) {
+      console.error('Error deleting medicine:', error);
+      alert('Failed to delete medicine. Please try again.');
     }
   };
 
@@ -168,6 +245,11 @@ const PharmacyProfile = () => {
     return (
       <div className="min-h-screen bg-gray-50 py-8">
         <div className="max-w-2xl mx-auto px-4">
+          <div className="flex items-center mb-6 cursor-pointer" onClick={() => navigate('/')}>
+            <ArrowLeft className="h-5 w-5 mr-2" />
+            <span>Back to Home</span>
+          </div>
+
           <div className="text-center mb-8">
             <Store className="h-16 w-16 text-blue-600 mx-auto mb-4" />
             <h1 className="text-3xl font-bold text-gray-900">Welcome to Your Pharmacy Dashboard</h1>
@@ -190,7 +272,7 @@ const PharmacyProfile = () => {
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Pharmacy Name
+                    Pharmacy Name *
                   </label>
                   <input
                     type="text"
@@ -204,7 +286,7 @@ const PharmacyProfile = () => {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Address
+                    Address *
                   </label>
                   <textarea
                     name="address"
@@ -218,7 +300,21 @@ const PharmacyProfile = () => {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Phone Number
+                    Location *
+                  </label>
+                  <input
+                    type="text"
+                    name="location"
+                    value={pharmacyForm.location}
+                    onChange={handlePharmacyFormChange}
+                    required
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Enter location (city, area)"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Phone Number *
                   </label>
                   <input
                     type="tel"
@@ -239,14 +335,13 @@ const PharmacyProfile = () => {
                     name="email"
                     value={pharmacyForm.email}
                     onChange={handlePharmacyFormChange}
-                    required
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                     placeholder="Enter email address"
                   />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    License Number
+                    License Number *
                   </label>
                   <input
                     type="text"
@@ -256,6 +351,20 @@ const PharmacyProfile = () => {
                     required
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                     placeholder="Enter pharmacy license number"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Owner Name *
+                  </label>
+                  <input
+                    type="text"
+                    name="owner"
+                    value={pharmacyForm.owner}
+                    onChange={handlePharmacyFormChange}
+                    required
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Enter owner name"
                   />
                 </div>
                 <div className="flex gap-3 pt-4">
@@ -287,6 +396,11 @@ const PharmacyProfile = () => {
   return (
     <div className="min-h-screen bg-gray-50 py-8">
       <div className="max-w-6xl mx-auto px-4">
+        <div className="flex items-center mb-6 cursor-pointer" onClick={() => navigate('/')}>
+          <ArrowLeft className="h-5 w-5 mr-2" />
+          <span>Back to Home</span>
+        </div>
+
         {/* Pharmacy Header */}
         <div className="mb-8">
           <div className="flex items-center gap-3 mb-2">
@@ -295,8 +409,10 @@ const PharmacyProfile = () => {
           </div>
           <div className="text-gray-600">
             <p>{pharmacy.address}</p>
+            <p>{pharmacy.location}</p>
             <p>{pharmacy.phone} • {pharmacy.email}</p>
             <p>License: {pharmacy.licenseNumber}</p>
+            <p>Owner: {pharmacy.owner}</p>
           </div>
         </div>
 
@@ -317,10 +433,11 @@ const PharmacyProfile = () => {
 
           {showMedicineForm && (
             <div className="bg-gray-50 p-4 rounded-lg mb-4">
+              <h3 className="text-lg font-medium text-gray-900 mb-4">Add New Medicine</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Medicine Name
+                    Medicine Name *
                   </label>
                   <input
                     type="text"
@@ -334,7 +451,7 @@ const PharmacyProfile = () => {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Price ($)
+                    Price ($) *
                   </label>
                   <input
                     type="number"
@@ -349,7 +466,7 @@ const PharmacyProfile = () => {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Stock Quantity
+                    Stock Quantity *
                   </label>
                   <input
                     type="number"
@@ -363,13 +480,26 @@ const PharmacyProfile = () => {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Description
+                    Category
                   </label>
                   <input
                     type="text"
+                    name="category"
+                    value={medicineForm.category}
+                    onChange={handleMedicineFormChange}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+                    placeholder="Enter category (e.g., Pain Relief, Fever)"
+                  />
+                </div>
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Description
+                  </label>
+                  <textarea
                     name="description"
                     value={medicineForm.description}
                     onChange={handleMedicineFormChange}
+                    rows="3"
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
                     placeholder="Enter description (optional)"
                   />
@@ -392,7 +522,8 @@ const PharmacyProfile = () => {
                       name: '',
                       description: '',
                       price: '',
-                      stock: ''
+                      stock: '',
+                      category: ''
                     });
                   }}
                   className="px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 transition-colors"
@@ -406,7 +537,16 @@ const PharmacyProfile = () => {
 
         {/* Medicines Grid */}
         <div className="bg-white rounded-lg shadow-md p-6">
-          <h3 className="text-xl font-semibold text-gray-900 mb-4">Your Medicines</h3>
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="text-xl font-semibold text-gray-900">Your Medicines ({medicines.length})</h3>
+            <button
+              onClick={fetchMedicines}
+              className="flex items-center gap-1 text-blue-600 hover:text-blue-800"
+            >
+              <RefreshCw className="h-4 w-4" />
+              Refresh
+            </button>
+          </div>
 
           {medicines.length === 0 ? (
             <div className="text-center py-12">
@@ -417,7 +557,15 @@ const PharmacyProfile = () => {
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {medicines.map((medicine) => (
-                <div key={medicine.id} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
+                <div key={medicine._id} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow relative">
+                  <button
+                    onClick={() => handleDeleteMedicine(medicine._id)}
+                    className="absolute top-2 right-2 text-red-500 hover:text-red-700"
+                    title="Delete medicine"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+
                   <div className="flex items-start justify-between mb-3">
                     <h4 className="font-semibold text-gray-900 text-lg">{medicine.name}</h4>
                     <Package className="h-5 w-5 text-gray-400" />
@@ -425,6 +573,14 @@ const PharmacyProfile = () => {
 
                   {medicine.description && (
                     <p className="text-gray-600 text-sm mb-3">{medicine.description}</p>
+                  )}
+
+                  {medicine.category && (
+                    <div className="mb-3">
+                      <span className="inline-block bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full">
+                        {medicine.category}
+                      </span>
+                    </div>
                   )}
 
                   <div className="space-y-2">
