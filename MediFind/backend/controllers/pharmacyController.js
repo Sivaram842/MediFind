@@ -111,24 +111,28 @@ export const deletePharmacy = async (req, res) => {
     }
 };
 
-// @desc    Get pharmacy for logged-in user
-// @route   GET /api/pharmacies/my-pharmacy
+
+
 export const getMyPharmacy = async (req, res) => {
     try {
-        // Make sure req.user is set by auth middleware
         if (!req.user || !req.user._id) {
-            return res.status(401).json({ message: "Not authorized" });
+            console.error("❌ No user attached to request");
+            return res.status(401).json({ message: "Unauthorized: No user in request" });
         }
 
-        const pharmacy = await Pharmacy.findOne({ user: req.user._id }).populate("user", "name email");
+        console.log("🔍 Logged-in user ID:", req.user._id);
+
+        const pharmacy = await Pharmacy.findOne({ user: req.user._id });
 
         if (!pharmacy) {
-            return res.status(404).json({ message: "No pharmacy found for this user" });
+            console.log("⚠️ No pharmacy found for user:", req.user._id);
+            return res.status(404).json({ message: "No pharmacy found for this account" });
         }
 
         res.status(200).json(pharmacy);
     } catch (error) {
-        console.error("Error in getMyPharmacy:", error);
+        console.error("🔥 Error in getMyPharmacy:", error);
         res.status(500).json({ message: "Internal server error", error: error.message });
     }
 };
+
