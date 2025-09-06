@@ -1,31 +1,44 @@
 import Pharmacy from "../models/pharmacy.js";
+import User from "../models/user.js";
 
 // @desc    Register a new pharmacy
 // @route   POST /api/pharmacies
 export const addPharmacy = async (req, res) => {
     try {
-        const { name, address, phone, owner } = req.body; // Changed to match frontend
+        const { name, address, phone } = req.body;
 
-        // Validate - match frontend requirements
-        if (!name || !address || !phone || !owner) {
+        if (!name || !address || !phone) {
             return res.status(400).json({ message: "All required fields must be provided" });
         }
 
-        // Check if already exists for this user
+        // Ensure user is logged in
+        if (!req.user || !req.user._id) {
+            return res.status(401).json({ message: "Unauthorized" });
+        }
+
+        // Prevent duplicate pharmacy registration for this user
         const existing = await Pharmacy.findOne({ user: req.user._id });
         if (existing) {
             return res.status(400).json({ message: "You already registered a pharmacy" });
         }
 
+        // Create new pharmacy
         const pharmacy = new Pharmacy({
             name,
             address,
             phone,
-            owner, // Match frontend field name
-            user: req.user._id,
+            user: req.user._id, // link pharmacy to logged-in user
         });
 
         const saved = await pharmacy.save();
+
+        // Link pharmacy to user profile
+        await User.findByIdAndUpdate(
+            req.user._id,
+            { $addToSet: { pharmacies: saved._id } }, // no duplicates
+            { new: true }
+        );
+
         res.status(201).json(saved);
     } catch (error) {
         console.error("Error adding pharmacy:", error);
@@ -38,7 +51,7 @@ export const addPharmacy = async (req, res) => {
 export const getAllPharmacies = async (req, res) => {
     try {
         const pharmacies = await Pharmacy.find().populate("user", "name email");
-        res.status(200).json({ pharmacies }); // Return as object to match frontend expectation
+        res.status(200).json({ pharmacies });
     } catch (error) {
         console.error("Error fetching pharmacies:", error);
         res.status(500).json({ message: "Internal server error" });
@@ -103,7 +116,14 @@ export const deletePharmacy = async (req, res) => {
             return res.status(403).json({ message: "You are not authorized to delete this pharmacy" });
         }
 
+        // Delete pharmacy
         await Pharmacy.findByIdAndDelete(id);
+
+        // Remove pharmacy reference from user
+        await User.findByIdAndUpdate(req.user._id, {
+            $pull: { pharmacies: pharmacy._id }
+        });
+
         res.status(200).json({ message: "Pharmacy deleted successfully" });
     } catch (error) {
         console.error("Error deleting pharmacy:", error);
@@ -111,28 +131,23 @@ export const deletePharmacy = async (req, res) => {
     }
 };
 
-
-
+// @desc    Get pharmacy for logged-in user
+// @route   GET /api/pharmacies/my-pharmacy
 export const getMyPharmacy = async (req, res) => {
     try {
         if (!req.user || !req.user._id) {
-            console.error("❌ No user attached to request");
             return res.status(401).json({ message: "Unauthorized: No user in request" });
         }
-
-        console.log("🔍 Logged-in user ID:", req.user._id);
 
         const pharmacy = await Pharmacy.findOne({ user: req.user._id });
 
         if (!pharmacy) {
-            console.log("⚠️ No pharmacy found for user:", req.user._id);
             return res.status(404).json({ message: "No pharmacy found for this account" });
         }
 
         res.status(200).json(pharmacy);
     } catch (error) {
-        console.error("🔥 Error in getMyPharmacy:", error);
+        console.error("Error in getMyPharmacy:", error);
         res.status(500).json({ message: "Internal server error", error: error.message });
     }
 };
-

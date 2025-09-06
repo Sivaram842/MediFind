@@ -130,3 +130,50 @@ export const deleteUser = async (req, res) => {
         res.status(500).json({ message: "Internal server error" });
     }
 };
+
+
+// ✅ Add pharmacy ID to user
+export const addPharmacyToUser = async (req, res) => {
+    try {
+        const { userId, pharmacyId } = req.body;
+
+        if (!userId || !pharmacyId) {
+            return res.status(400).json({ message: "userId and pharmacyId are required" });
+        }
+
+        // Push pharmacyId to user's pharmacies array
+        const updatedUser = await User.findByIdAndUpdate(
+            userId,
+            { $addToSet: { pharmacies: pharmacyId } }, // prevents duplicate entries
+            { new: true }
+        ).populate("pharmacies", "name address phone"); // optional populate
+
+        if (!updatedUser) {
+            return res.status(404).json({ message: "User not found" });
+        }
+
+        res.status(200).json(updatedUser);
+    } catch (error) {
+        console.error("Error adding pharmacy to user:", error);
+        res.status(500).json({ message: "Internal server error" });
+    }
+};
+// ✅ Retrieve pharmacy IDs from a user
+export const getUserPharmacies = async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        const user = await User.findById(id)
+            .select("name email pharmacies")
+            .populate("pharmacies", "name address phone"); // optional: show details
+
+        if (!user) {
+            return res.status(404).json({ message: "User not found" });
+        }
+
+        res.status(200).json(user.pharmacies); // return only pharmacies
+    } catch (error) {
+        console.error("Error fetching pharmacies:", error);
+        res.status(500).json({ message: "Internal server error" });
+    }
+};

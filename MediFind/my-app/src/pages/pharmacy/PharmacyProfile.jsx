@@ -32,34 +32,34 @@ const PharmacyProfile = () => {
         return;
       }
 
-      // First, get the user's email from the token or user profile
-      const userEmail = await getUserEmail(token);
+      // Extract user ID from token
+      const userId = getUserIdFromToken(token);
 
-      if (!userEmail) {
+      if (!userId) {
         setLoading(false);
         return;
       }
 
-      // Check if a pharmacy exists with this user's email
-      const response = await fetch(`https://medifind-7.onrender.com/api/pharmacies/check?email=${userEmail}`, {
+      // Check if a pharmacy exists for this user ID
+      const response = await fetch(`https://medifind-7.onrender.com/api/pharmacies/${userId}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
         },
       });
 
       if (response.ok) {
-        const result = await response.json();
-        if (result.exists) {
+        const pharmacyData = await response.json();
+        if (pharmacyData && pharmacyData._id) {
           // If pharmacy exists, redirect to add-medicine
           navigate('/add-medicine');
         }
       }
-      // If no pharmacy exists or endpoint doesn't exist, continue showing the form
+      // If no pharmacy exists (404), continue showing the form
     } catch (error) {
       console.error('Error checking pharmacy:', error);
-      // If the specific endpoint doesn't exist, try the general approach
+      // Try alternative endpoint if the first one fails
       try {
-        await checkPharmacyByOtherMeans();
+        await checkPharmacyByAlternativeMethod();
       } catch (fallbackError) {
         console.error('Fallback check also failed:', fallbackError);
       }
@@ -69,7 +69,7 @@ const PharmacyProfile = () => {
   };
 
   // Alternative method to check if user has a pharmacy
-  const checkPharmacyByOtherMeans = async () => {
+  const checkPharmacyByAlternativeMethod = async () => {
     try {
       const token = localStorage.getItem('token');
       const response = await fetch('https://medifind-7.onrender.com/api/pharmacies/my-pharmacy', {
@@ -86,38 +86,19 @@ const PharmacyProfile = () => {
       }
       // If response is not OK (like 404), it means no pharmacy exists
     } catch (error) {
-      console.error('Error in fallback pharmacy check:', error);
+      console.error('Error in alternative pharmacy check:', error);
     }
   };
 
-  // Extract user email from token or fetch user profile
-  const getUserEmail = async (token) => {
+  // Extract user ID from token
+  const getUserIdFromToken = (token) => {
     try {
-      // Try to extract email from token payload
-      try {
-        const payload = JSON.parse(atob(token.split('.')[1]));
-        if (payload.email) {
-          return payload.email;
-        }
-      } catch (e) {
-        console.log('Could not extract email from token');
-      }
-
-      // If not in token, fetch user profile
-      const response = await fetch('https://medifind-7.onrender.com/api/users/me', {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      });
-
-      if (response.ok) {
-        const userData = await response.json();
-        return userData.email;
-      }
+      const payload = JSON.parse(atob(token.split('.')[1]));
+      return payload.id || payload.userId || payload._id;
     } catch (error) {
-      console.error('Error fetching user email:', error);
+      console.error('Error extracting user ID from token:', error);
+      return null;
     }
-    return null;
   };
 
   const handlePharmacyFormChange = (e) => {
@@ -144,20 +125,13 @@ const PharmacyProfile = () => {
         return;
       }
 
-      // Get user email to include in pharmacy data
-      const userEmail = await getUserEmail(token);
-      const pharmacyData = {
-        ...pharmacyForm,
-        email: pharmacyForm.email || userEmail || '' // Use form email or user email
-      };
-
-      const response = await fetch('https://medifind-7.onrender.com/api/pharmacies', {
+      const response = await fetch('https://medifind-7.render.com/api/pharmacies', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`,
         },
-        body: JSON.stringify(pharmacyData),
+        body: JSON.stringify(pharmacyForm),
       });
 
       const responseData = await response.json();

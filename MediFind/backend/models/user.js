@@ -1,4 +1,4 @@
-import mongoose from 'mongoose';
+import mongoose from "mongoose";
 
 const userSchema = new mongoose.Schema({
     name: { type: String, required: true },
@@ -7,6 +7,10 @@ const userSchema = new mongoose.Schema({
     password: { type: String, required: true }, // Store hashed passwords
     role: { type: String, enum: ['user', 'admin', 'pharmacy'], default: 'user' },
     address: { type: String },
+    pharmacies: {
+        type: [{ type: mongoose.Schema.Types.ObjectId, ref: "Pharmacy" }],
+        default: []
+    },
     createdAt: { type: Date, default: Date.now }
 });
 
