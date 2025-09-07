@@ -280,7 +280,9 @@ const PharmacyManagement = () => {
         } finally {
             setIsLoading(false);
         }
-    }; const handleSubmit = async () => {
+    };
+
+    const handleSubmit = async () => {
         if (!formData.name || !formData.description || !formData.price || !formData.stock) {
             alert('Please fill in all fields');
             return;

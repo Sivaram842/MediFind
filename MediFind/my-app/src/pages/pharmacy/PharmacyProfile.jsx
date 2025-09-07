@@ -110,7 +110,7 @@ const PharmacyProfile = () => {
         return;
       }
 
-      const response = await fetch('https://medifind-7.render.com/api/pharmacies', {
+      const response = await fetch('https://medifind-7.onrender.com/api/pharmacies', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

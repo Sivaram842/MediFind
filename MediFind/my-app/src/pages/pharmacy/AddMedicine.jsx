@@ -118,7 +118,12 @@ const AddMedicine = () => {
                 pharmacyId: pharmacy._id
             };
 
-            const response = await fetch('/api/medicines', {
+            if (!pharmacy || !pharmacy._id) {
+                setError('Pharmacy ID is missing.');
+                return;
+            }
+
+            const response = await fetch('https://medifind-7.onrender.com/api/medicines', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -127,6 +132,12 @@ const AddMedicine = () => {
                 },
                 body: JSON.stringify(medicineData),
             });
+            const responseData = await response.json();
+            if (!token) {
+                setError('Authentication token missing. Please log in.');
+                return;
+            }
+
 
             if (!response.ok) {
                 const errorData = await response.json();
