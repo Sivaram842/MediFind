@@ -1,5 +1,7 @@
-import React, { useState, useEffect } from 'react';
-import { Plus, Edit, Trash2, MapPin, Phone, AlertCircle, CheckCircle } from 'lucide-react';
+import React, { useState, useContext, useEffect } from 'react';
+import { Plus, Edit, Trash2, MapPin, Package, Phone, AlertCircle, CheckCircle } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+
 
 const AddMedicine = () => {
     const [pharmacy, setPharmacy] = useState(null);
@@ -8,6 +10,7 @@ const AddMedicine = () => {
     const [formLoading, setFormLoading] = useState(false);
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
+    const navigate = useNavigate();
 
     // Form state
     const [formData, setFormData] = useState({
@@ -22,16 +25,15 @@ const AddMedicine = () => {
     });
 
     const categories = ['Tablet', 'Syrup', 'Injection', 'Capsule', 'Other'];
+    const token = localStorage.getItem('token');
 
-    // Fetch pharmacy details
     const fetchPharmacy = async () => {
         try {
-            const response = await fetch('/api/pharmacies/my-pharmacy', {
+            const response = await fetch('https://medifind-7.onrender.com/api/pharmacies/my-pharmacy', {
                 method: 'GET',
                 headers: {
                     'Content-Type': 'application/json',
-                    // Add authorization header if needed
-                    // 'Authorization': `Bearer ${token}`
+                    'Authorization': `Bearer ${token}`
                 },
             });
 
@@ -47,21 +49,20 @@ const AddMedicine = () => {
         }
     };
 
-    // Fetch medicines
     const fetchMedicines = async () => {
+        if (!pharmacy) return; // Ensure pharmacy exists before fetching
         try {
-            const response = await fetch('/api/medicines/my-pharmacy', {
+            const response = await fetch(`https://medifind-7.onrender.com/api/medicines/pharmacy/${pharmacy._id}`, {
                 method: 'GET',
                 headers: {
                     'Content-Type': 'application/json',
-                    // Add authorization header if needed
-                    // 'Authorization': `Bearer ${token}`
+                    'Authorization': `Bearer ${token}`
                 },
             });
 
             if (response.ok) {
                 const data = await response.json();
-                setMedicines(data);
+                setMedicines(data.medicines); // Adjust according to your API response format
             } else {
                 setMedicines([]);
             }
@@ -71,14 +72,22 @@ const AddMedicine = () => {
         }
     };
 
+
+
     useEffect(() => {
-        const loadData = async () => {
+        const loadPharmacy = async () => {
             setLoading(true);
-            await Promise.all([fetchPharmacy(), fetchMedicines()]);
+            await fetchPharmacy();
             setLoading(false);
         };
-        loadData();
+        loadPharmacy();
     }, []);
+
+    useEffect(() => {
+        if (pharmacy) {
+            fetchMedicines();
+        }
+    }, [pharmacy]);
 
     // Handle form input changes
     const handleInputChange = (e) => {
@@ -106,7 +115,7 @@ const AddMedicine = () => {
                 ...formData,
                 price: parseFloat(formData.price),
                 stock: parseInt(formData.stock),
-                pharmacyId: pharmacy.id
+                pharmacyId: pharmacy._id
             };
 
             const response = await fetch('/api/medicines', {
@@ -114,7 +123,7 @@ const AddMedicine = () => {
                 headers: {
                     'Content-Type': 'application/json',
                     // Add authorization header if needed
-                    // 'Authorization': `Bearer ${token}`
+                    'Authorization': `Bearer ${token}`
                 },
                 body: JSON.stringify(medicineData),
             });
@@ -229,6 +238,17 @@ const AddMedicine = () => {
     return (
         <div className="min-h-screen bg-gray-50 p-4 sm:p-6">
             <div className="max-w-7xl mx-auto">
+                <div
+                    className="flex items-center cursor-pointer"
+                    onClick={() => navigate('/')}
+                >
+                    <div className="bg-gradient-to-r from-blue-600 to-purple-600 p-2 rounded-lg mr-3">
+                        <Package className="h-6 w-6 text-white" />
+                    </div>
+                    <span className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+                        MediFind
+                    </span>
+                </div>
                 {/* Page Header */}
                 <div className="mb-8">
                     <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Medicine Management</h1>
@@ -474,10 +494,10 @@ const AddMedicine = () => {
                                 <div
                                     key={medicine.id}
                                     className={`border rounded-lg p-4 transition-all hover:shadow-lg ${isExpired(medicine.expiryDate)
-                                            ? 'border-red-300 bg-red-50'
-                                            : isNearExpiry(medicine.expiryDate)
-                                                ? 'border-orange-300 bg-orange-50'
-                                                : 'border-gray-200 hover:border-gray-300'
+                                        ? 'border-red-300 bg-red-50'
+                                        : isNearExpiry(medicine.expiryDate)
+                                            ? 'border-orange-300 bg-orange-50'
+                                            : 'border-gray-200 hover:border-gray-300'
                                         }`}
                                 >
                                     <div className="flex justify-between items-start mb-3">
@@ -520,10 +540,10 @@ const AddMedicine = () => {
                                         <div className="flex justify-between">
                                             <span className="text-gray-600">Expiry:</span>
                                             <span className={`font-medium ${isExpired(medicine.expiryDate)
-                                                    ? 'text-red-600'
-                                                    : isNearExpiry(medicine.expiryDate)
-                                                        ? 'text-orange-600'
-                                                        : 'text-gray-800'
+                                                ? 'text-red-600'
+                                                : isNearExpiry(medicine.expiryDate)
+                                                    ? 'text-orange-600'
+                                                    : 'text-gray-800'
                                                 }`}>
                                                 {formatDate(medicine.expiryDate)}
                                             </span>

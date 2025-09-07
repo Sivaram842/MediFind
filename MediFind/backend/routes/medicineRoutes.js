@@ -11,23 +11,24 @@ import {
 import { protect } from "../middleware/authMiddleware.js";
 import { pharmacyOnly } from "../middleware/roleMiddleware.js";
 
-const medicineRouter = express.Router();
+const router = express.Router();
 
-// Public routes
-medicineRouter.get("/", getAllMedicines);
-medicineRouter.get("/search", searchMedicines);
-medicineRouter.get("/:id", getMedicineById);
-medicineRouter.get("/pharmacy/:pharmacyId", getMedicinesByPharmacy);
+// ------------------------
+// Public Routes
+// ------------------------
+router.get("/", getAllMedicines);                     // Get all medicines with optional filters
+router.get("/search", searchMedicines);               // Advanced search
+router.get("/:id", getMedicineById);                 // Get medicine by ID
+router.get("/pharmacy/:pharmacyId", getMedicinesByPharmacy); // Get medicines by pharmacy ID
 
-// Protected routes — Only authenticated users
-medicineRouter.use(protect);
+// ------------------------
+// Protected Routes
+// ------------------------
+router.use(protect); // All routes below require authentication
 
 // Pharmacy-only routes
-medicineRouter.post("/", pharmacyOnly, addMedicine);
-medicineRouter.put("/:id", pharmacyOnly, updateMedicine);
-medicineRouter.delete("/:id", pharmacyOnly, deleteMedicine);
+router.post("/", pharmacyOnly, addMedicine);         // Add new medicine
+router.put("/:id", pharmacyOnly, updateMedicine);   // Update medicine
+router.delete("/:id", pharmacyOnly, deleteMedicine); // Delete medicine
 
-// Admin-only routes (if needed)
-// medicineRouter.get("/admin/stats", adminOnly, getMedicineStats);
-
-export default medicineRouter;
+export default router;

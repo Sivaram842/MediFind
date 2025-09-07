@@ -32,16 +32,7 @@ const PharmacyProfile = () => {
         return;
       }
 
-      // Extract user ID from token
-      const userId = getUserIdFromToken(token);
-
-      if (!userId) {
-        setLoading(false);
-        return;
-      }
-
-      // Check if a pharmacy exists for this user ID
-      const response = await fetch(`https://medifind-7.onrender.com/api/pharmacies/${userId}`, {
+      const response = await fetch('https://medifind-7.onrender.com/api/pharmacies/my-pharmacy', {
         headers: {
           'Authorization': `Bearer ${token}`,
         },
@@ -50,23 +41,17 @@ const PharmacyProfile = () => {
       if (response.ok) {
         const pharmacyData = await response.json();
         if (pharmacyData && pharmacyData._id) {
-          // If pharmacy exists, redirect to add-medicine
           navigate('/add-medicine');
         }
       }
-      // If no pharmacy exists (404), continue showing the form
+      // If 404, show form to create pharmacy
     } catch (error) {
       console.error('Error checking pharmacy:', error);
-      // Try alternative endpoint if the first one fails
-      try {
-        await checkPharmacyByAlternativeMethod();
-      } catch (fallbackError) {
-        console.error('Fallback check also failed:', fallbackError);
-      }
     } finally {
       setLoading(false);
     }
   };
+
 
   // Alternative method to check if user has a pharmacy
   const checkPharmacyByAlternativeMethod = async () => {
