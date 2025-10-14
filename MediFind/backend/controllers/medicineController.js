@@ -154,8 +154,7 @@ export const searchMedicines = async (req, res) => {
         res.status(500).json({ message: "Internal server error" });
     }
 };
-
-// ✅ Add a new medicine (auto populate pharmacy)
+// ✅ Add a new medicine (and link it to the pharmacy)
 export const addMedicine = async (req, res) => {
     try {
         const { name, description, price, stock, category, pharmacyId } = req.body;
@@ -176,11 +175,12 @@ export const addMedicine = async (req, res) => {
             return res.status(404).json({ message: "Pharmacy not found" });
         }
 
-        // Check if user owns the pharmacy
+        // Ownership check
         if (pharmacy.user.toString() !== req.user._id.toString()) {
             return res.status(403).json({ message: "You can only add medicines to your own pharmacy" });
         }
 
+        // Create the medicine
         const medicine = new Medicine({
             name,
             description,
@@ -191,6 +191,14 @@ export const addMedicine = async (req, res) => {
         });
 
         const savedMedicine = await medicine.save();
+
+        // 👇 Add medicine ID to pharmacy’s medicines array
+        await Pharmacy.findByIdAndUpdate(
+            pharmacy._id,
+            { $push: { medicines: savedMedicine._id } },
+            { new: true }
+        );
+
         await savedMedicine.populate("pharmacy", "name address phone location");
 
         res.status(201).json(savedMedicine);
@@ -199,6 +207,7 @@ export const addMedicine = async (req, res) => {
         res.status(500).json({ message: "Internal server error" });
     }
 };
+
 
 // ✅ Update medicine (auto populate pharmacy)
 export const updateMedicine = async (req, res) => {
@@ -234,7 +243,7 @@ export const updateMedicine = async (req, res) => {
     }
 };
 
-// ✅ Delete medicine
+// ✅ Delete medicine (and remove its ID from pharmacy's medicines array)
 export const deleteMedicine = async (req, res) => {
     try {
         const { id } = req.params;
@@ -255,7 +264,15 @@ export const deleteMedicine = async (req, res) => {
             return res.status(403).json({ message: "You can only delete medicines from your own pharmacy" });
         }
 
+        // Delete medicine
         await Medicine.findByIdAndDelete(id);
+
+        // 👇 Remove medicine ID from pharmacy’s medicines array
+        await Pharmacy.findByIdAndUpdate(
+            userPharmacy._id,
+            { $pull: { medicines: medicine._id } }
+        );
+
         res.status(200).json({ message: "Medicine deleted successfully" });
     } catch (error) {
         console.error("Error deleting medicine:", error);

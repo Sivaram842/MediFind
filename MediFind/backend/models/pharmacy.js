@@ -7,7 +7,14 @@ const pharmacySchema = new mongoose.Schema({
     address: { type: String, required: true },
     location: { type: String }, // city or pincode
     licenseNumber: { type: String },
-    user: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true }, // 👈 add this
+    user: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true }, // Reference to user (owner)
+
+    // 👇 New field: store all medicines added by this pharmacy
+    medicines: {
+        type: [{ type: mongoose.Schema.Types.ObjectId, ref: "Medicine" }],
+        default: []
+    },
+
     createdAt: { type: Date, default: Date.now }
 });
 
