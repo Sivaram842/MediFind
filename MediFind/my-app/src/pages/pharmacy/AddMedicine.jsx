@@ -124,6 +124,8 @@ const AddMedicine = () => {
                 description: formData.description,
                 pharmacyId: pharmacy._id
             };
+            console.log("Submitting data:", formData);
+
 
             const response = await fetch('https://medifind-7.onrender.com/api/medicines', {
                 method: 'POST',

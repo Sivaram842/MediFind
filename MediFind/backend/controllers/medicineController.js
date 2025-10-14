@@ -26,6 +26,8 @@ export const getMedicinesByPharmacy = async (req, res) => {
 
         // Verify pharmacy exists
         const pharmacy = await Pharmacy.findById(pharmacyId);
+        console.log("Pharmacy found:", pharmacy);
+
         if (!pharmacy) {
             return res.status(404).json({ message: "Pharmacy not found" });
         }
@@ -157,22 +159,45 @@ export const searchMedicines = async (req, res) => {
 // ✅ Add a new medicine (and link it to the pharmacy)
 export const addMedicine = async (req, res) => {
     try {
-        const { name, description, price, stock, category, pharmacyId } = req.body;
+        const {
+            name,
+            brand,
+            price,
+            stock,
+            expiryDate,
+            category,
+            dosage,
+            prescriptionRequired,
+            pharmacyId,
+            description
+        } = req.body;
 
-        if (!name || !price || !stock) {
-            return res.status(400).json({ message: "Name, price, and stock are required" });
+        console.log("Incoming data:", req.body);
+        console.log("User from token:", req.user);
+
+        if (!name || !price || !stock || !expiryDate) {
+            return res.status(400).json({ message: "Name, price, stock, and expiryDate are required" });
         }
 
         // Find pharmacy - use provided ID or user's default pharmacy
         let pharmacy;
         if (pharmacyId) {
             pharmacy = await Pharmacy.findById(pharmacyId);
-        } else {
+        } else if (req.user?._id) {
             pharmacy = await Pharmacy.findOne({ user: req.user._id });
         }
 
+        console.log("Incoming data:", req.body);
+        console.log("User from token:", req.user);
+        console.log("Pharmacy found:", pharmacy);
+
+
         if (!pharmacy) {
             return res.status(404).json({ message: "Pharmacy not found" });
+        }
+
+        if (!pharmacy.user || !req.user?._id) {
+            return res.status(403).json({ message: "User or pharmacy ownership not valid" });
         }
 
         // Ownership check
@@ -180,19 +205,22 @@ export const addMedicine = async (req, res) => {
             return res.status(403).json({ message: "You can only add medicines to your own pharmacy" });
         }
 
-        // Create the medicine
+        // Create medicine
         const medicine = new Medicine({
             name,
-            description,
+            brand,
             price: parseFloat(price),
             stock: parseInt(stock),
+            expiryDate: new Date(expiryDate),
             category,
+            dosage,
+            prescriptionRequired,
             pharmacy: pharmacy._id,
+            description
         });
 
         const savedMedicine = await medicine.save();
 
-        // 👇 Add medicine ID to pharmacy’s medicines array
         await Pharmacy.findByIdAndUpdate(
             pharmacy._id,
             { $push: { medicines: savedMedicine._id } },
@@ -203,8 +231,9 @@ export const addMedicine = async (req, res) => {
 
         res.status(201).json(savedMedicine);
     } catch (error) {
-        console.error("Error adding medicine:", error);
-        res.status(500).json({ message: "Internal server error" });
+        console.error("Error adding medicine:", error.message);
+        console.error(error.stack);
+        res.status(500).json({ message: error.message || "Internal server error" });
     }
 };
 

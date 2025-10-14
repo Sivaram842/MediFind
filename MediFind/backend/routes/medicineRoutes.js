@@ -17,9 +17,9 @@ const router = express.Router();
 // Public Routes
 // ------------------------
 router.get("/", getAllMedicines);                     // Get all medicines with optional filters
-router.get("/search", searchMedicines);               // Advanced search
-router.get("/:id", getMedicineById);                 // Get medicine by ID
+router.get("/search", searchMedicines);
 router.get("/pharmacy/:pharmacyId", getMedicinesByPharmacy); // Get medicines by pharmacy ID
+router.get("/:id", getMedicineById);                 // Get medicine by ID
 
 // ------------------------
 // Protected Routes
