@@ -21,7 +21,8 @@ const AddMedicine = () => {
         expiryDate: '',
         category: 'Tablet',
         dosage: '',
-        prescriptionRequired: false
+        prescriptionRequired: false,
+        description: ''
     });
 
     const categories = ['Tablet', 'Syrup', 'Injection', 'Capsule', 'Other'];
@@ -112,39 +113,31 @@ const AddMedicine = () => {
 
         try {
             const medicineData = {
-                ...formData,
+                name: formData.name,
+                brand: formData.brand,
                 price: parseFloat(formData.price),
                 stock: parseInt(formData.stock),
+                expiryDate: formData.expiryDate,
+                category: formData.category,
+                dosage: formData.dosage,
+                prescriptionRequired: formData.prescriptionRequired,
+                description: formData.description,
                 pharmacyId: pharmacy._id
             };
-
-            if (!pharmacy || !pharmacy._id) {
-                setError('Pharmacy ID is missing.');
-                return;
-            }
 
             const response = await fetch('https://medifind-7.onrender.com/api/medicines', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    // Add authorization header if needed
                     'Authorization': `Bearer ${token}`
                 },
-                body: JSON.stringify(medicineData),
+                body: JSON.stringify(medicineData)
             });
+
             const responseData = await response.json();
-            if (!token) {
-                setError('Authentication token missing. Please log in.');
-                return;
-            }
 
+            if (!response.ok) throw new Error(responseData.message || 'Failed to add medicine');
 
-            if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.message || 'Failed to add medicine');
-            }
-
-            // Clear form
             setFormData({
                 name: '',
                 brand: '',
@@ -153,14 +146,14 @@ const AddMedicine = () => {
                 expiryDate: '',
                 category: 'Tablet',
                 dosage: '',
-                prescriptionRequired: false
+                prescriptionRequired: false,
+                description: ''
             });
 
             setSuccess('Medicine added successfully!');
-            await fetchMedicines(); // Refresh medicines list
-
-            // Clear success message after 3 seconds
+            await fetchMedicines();
             setTimeout(() => setSuccess(''), 3000);
+
         } catch (error) {
             setError(error.message || 'Failed to add medicine. Please try again.');
         } finally {
@@ -175,23 +168,25 @@ const AddMedicine = () => {
         }
 
         try {
-            const response = await fetch(`/api/medicines/${medicineId}`, {
+            const token = localStorage.getItem('token'); // Ensure token is used
+            const response = await fetch(`https://medifind-7.onrender.com/api/medicines/${medicineId}`, {
                 method: 'DELETE',
                 headers: {
                     'Content-Type': 'application/json',
-                    // Add authorization header if needed
-                    // 'Authorization': `Bearer ${token}`
+                    'Authorization': `Bearer ${token}` // ✅ include token
                 },
             });
 
+            const responseData = await response.json();
+
             if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.message || 'Failed to delete medicine');
+                throw new Error(responseData.message || 'Failed to delete medicine');
             }
 
             setSuccess('Medicine deleted successfully!');
-            await fetchMedicines();
+            await fetchMedicines(); // Refresh list
             setTimeout(() => setSuccess(''), 3000);
+
         } catch (error) {
             setError(error.message || 'Failed to delete medicine.');
         }
@@ -459,6 +454,22 @@ const AddMedicine = () => {
                                     Prescription Required
                                 </label>
                             </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                    Discription
+                                </label>
+                                <textarea
+                                    type="text"
+                                    rows="4"
+                                    name="description"
+                                    value={formData.description}
+                                    onChange={handleInputChange}
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                    placeholder="Enter about medicine"
+                                />
+                            </div>
+
+
 
                             {/* Submit Button */}
                             <div className="md:col-span-2 lg:col-span-3 pt-4">
