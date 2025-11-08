@@ -11,31 +11,31 @@ export const addPharmacy = async (req, res) => {
             return res.status(400).json({ message: "All required fields must be provided" });
         }
 
-        // Ensure user is logged in
         if (!req.user || !req.user._id) {
             return res.status(401).json({ message: "Unauthorized" });
         }
+        console.log("User Role:", req.user.role);
 
-        // Prevent duplicate pharmacy registration for this user
-        const existing = await Pharmacy.findOne({ user: req.user._id });
-        if (existing) {
-            return res.status(400).json({ message: "You already registered a pharmacy" });
+        // ✅ Skip restriction for admin
+        if (req.user.role !== "admin") {
+            const existing = await Pharmacy.findOne({ user: req.user._id });
+            if (existing) {
+                return res.status(400).json({ message: "You already registered a pharmacy" });
+            }
         }
 
-        // Create new pharmacy
         const pharmacy = new Pharmacy({
             name,
             address,
             phone,
-            user: req.user._id, // link pharmacy to logged-in user
+            user: req.user._id,
         });
 
         const saved = await pharmacy.save();
 
-        // Link pharmacy to user profile
         await User.findByIdAndUpdate(
             req.user._id,
-            { $addToSet: { pharmacies: saved._id } }, // no duplicates
+            { $addToSet: { pharmacies: saved._id } },
             { new: true }
         );
 
